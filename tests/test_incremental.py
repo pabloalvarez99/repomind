@@ -166,14 +166,19 @@ def test_a_new_indexer_version_never_reuses_old_chunks(repository: Path) -> None
     assert upgraded.indexer_version == "99"
 
 
-def test_ingest_counts_all_visible_files_but_indexes_only_python(repository: Path) -> None:
+def test_ingest_counts_all_visible_files_but_indexes_only_source_packs(
+    repository: Path,
+) -> None:
     """The reported counts distinguish what was seen from what was parsed."""
     snapshot = IncrementalIngestor(repository).ingest().snapshot
 
     paths = {digest.path for digest in snapshot.files}
     assert "README.md" in paths
     assert snapshot.file_count > snapshot.indexed_file_count
-    assert snapshot.indexed_file_count == sum(1 for path in paths if path.endswith(".py"))
+    indexed_suffixes = (".py", ".js", ".ts", ".tsx", ".jsx", ".json")
+    assert snapshot.indexed_file_count == sum(
+        1 for path in paths if path.lower().endswith(indexed_suffixes)
+    )
 
 
 def test_the_service_reindexes_a_committed_fixture_as_a_no_op() -> None:
@@ -211,7 +216,7 @@ def test_the_service_catalog_reports_both_committed_fixtures() -> None:
     assert all(entry.indexer_version == INDEXER_VERSION for entry in entries.values())
     # Week-2 honesty: production_rag pin is catalog metadata, not a live clone.
     assert entries["production_rag"].source_sha == (
-        "d43f81265842c95130a4b064cfca8a220dfd5431"
+        "bf6e36d1d4ca353c4f17f649cb721da51d74f6bb"
     )
     assert entries["production_rag"].source_repo == "pabloalvarez99/production-rag"
     assert entries["mini"].source_sha is None

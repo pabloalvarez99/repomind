@@ -14,7 +14,8 @@ from repomind.ingest.walk import walk_repository
 
 # Shared by Python AST and free-path JS/TS scanners. Keep the set small so the
 # answer renderer and index stay language-agnostic.
-ChunkKind = Literal["class", "function", "async_function"]
+# ``field`` is used by structural JSON/TOML packs (stdlib parsers, no network).
+ChunkKind = Literal["class", "function", "async_function", "field"]
 
 __all__ = [
     "ChunkKind",
