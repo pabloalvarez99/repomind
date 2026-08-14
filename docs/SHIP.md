@@ -4,6 +4,7 @@
 
 - [x] One-sentence value prop for hiring managers.
 - [x] Free demo path documented first.
+- [x] Hosted free path, no clone and no key: <https://pax-repomind.vercel.app>
 - [x] Paid path separated: none exists or is required.
 - [x] LIVE / DECLARED / PLANNED table in README.
 
@@ -40,6 +41,7 @@
 | Production RAG dogfood, 8/8 snapshot cases | `python -m repomind.evals.dogfood` | LIVE |
 | CLI stdout, exactly one JSON object | `python -m repomind ask ...` | LIVE |
 | Container, Python 3.12 slim, unprivileged, port 8020 | `Dockerfile` | LIVE |
+| Hosted console and API, same fixtures, no key | <https://pax-repomind.vercel.app> | LIVE |
 | Case study with decisions and eval limits | [`docs/CASESTUDY.md`](CASESTUDY.md) | LIVE |
 | UI capture script, asserts outcome before writing | [`scripts/capture_ui.py`](../scripts/capture_ui.py) | LIVE |
 | Console capture, mini exact-symbol hit with `path:start-end` | `docs/assets/ui-mini-hit.png` | LIVE |

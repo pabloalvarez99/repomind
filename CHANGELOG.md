@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Documentation only; no runtime, API, or eval behavior changed.
+- No runtime, API, or eval behavior changed; the additions below are hosting and documentation.
+- Hosted free path at <https://pax-repomind.vercel.app>: a root `main.py` re-exports
+  `repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`
+  and `fixtures/` so the closed catalog resolves inside the function. The hosted instance
+  answers over the same committed fixtures as the local path — no key, no clone, no
+  embeddings, and no claim beyond those fixtures.
 - `scripts/capture_ui.py` regenerates three deterministic console screenshots and asserts the
   rendered outcome before writing each PNG. Playwright lives in a new optional `docs` extra and
   stays out of CI.

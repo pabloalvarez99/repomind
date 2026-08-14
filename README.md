@@ -20,8 +20,9 @@ end to end without API keys, network calls, or billed providers.
 
 **Hiring managers start here: [case study](docs/CASESTUDY.md)** — four decisions, the
 trade-off each one bought, and exactly what the 14/14 and 8/8 eval scores do and do not
-prove. Two minutes, no setup. Screenshots of the running console are
-[below](#evidence-you-can-see-without-running-anything).
+prove. Two minutes, no setup. The console is also
+[hosted](https://pax-repomind.vercel.app) if you would rather click than clone, and
+screenshots are [below](#evidence-you-can-see-without-running-anything).
 
 ## Status
 
@@ -35,6 +36,24 @@ prove. Two minutes, no setup. Screenshots of the running console are
 | M5 | Fixture evaluation harness | LIVE |
 | M6 | Production RAG snapshot, closed catalog and symbol outline | LIVE |
 | M7 | Local ask console, release docs and container | LIVE |
+| M8 | Hosted free-path ask console | LIVE |
+
+## Hosted demo
+
+**<https://pax-repomind.vercel.app>** — the same free path, no clone and no key.
+
+```bash
+curl -s https://pax-repomind.vercel.app/health
+curl -s https://pax-repomind.vercel.app/v1/code/ask \
+  -H 'content-type: application/json' \
+  -d '{"question":"Where is create_app defined?","repo_id":"mini"}'
+```
+
+The hosted instance answers over the same committed fixtures as the local path: the `mini`
+regression repository and the frozen `production_rag` snapshot. It indexes those fixtures
+and nothing else, so it cannot answer about an arbitrary repository. Lexical retrieval over
+a small fixture — evidence that the citation path works end to end, not a state-of-the-art
+code-RAG result.
 
 ## Evidence you can see without running anything
 
@@ -136,7 +155,11 @@ answer quality—and reports `judge: null` and `billed_usd: 0.0`.
 - `GET /health` — liveness and version.
 - `GET /v1/code/symbols?repo_id=mini` — deterministic definition outline.
 - `POST /v1/code/ask` — answer or fixed refusal with path:line citations.
-- `GET /` and `GET /ask` — local, accessible ask console.
+- `GET /` and `GET /ask` — accessible ask console, local or hosted.
+
+The hosted deployment serves this same ASGI app: `main.py` at the repository root imports
+`repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`
+and `fixtures/` so the packaged catalog resolves in the function.
 
 See [architecture](docs/architecture.md), [case study](docs/CASESTUDY.md), and the
 [ship checklist](docs/SHIP.md). Security reports and local contributions are covered by
