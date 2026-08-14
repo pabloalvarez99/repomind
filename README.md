@@ -39,6 +39,9 @@ screenshots are [below](#evidence-you-can-see-without-running-anything).
 | M8 | Hosted free-path ask console | LIVE |
 | M9 | Content-addressed incremental index + catalog metadata | LIVE |
 | M10 | Free-path JS/TS fixture + optional git history | LIVE |
+| M11 | Committed history snapshots (hosted 200 without git) | LIVE |
+| M12 | Pinned production_rag dogfood + catalog source_sha | LIVE |
+| M13 | Python AST incoming refs (who calls X) + UI | LIVE |
 
 ## Hosted demo
 
@@ -64,7 +67,13 @@ The former contract bug is fixed: `repo_id=production_rag` works on `POST /v1/co
 curl -s https://pax-repomind.vercel.app/v1/code/ask \
   -H 'content-type: application/json' \
   -d '{"question":"Where is reciprocal_rank_fusion defined?","repo_id":"production_rag"}'
+curl -s "https://pax-repomind.vercel.app/v1/code/history?repo_id=mini&path=app/main.py&mode=log"
+curl -s "https://pax-repomind.vercel.app/v1/code/refs?repo_id=mini&symbol=create_app"
 ```
+
+History answers from committed fixture snapshots (no `git(1)` on the host). Incoming refs
+are Python AST call sites on catalog fixtures only. The `production_rag` id is a pinned
+source snapshot, not a live clone of P1.
 
 ## Evidence you can see without running anything
 
@@ -168,8 +177,11 @@ answer quality—and reports `judge: null` and `billed_usd: 0.0`.
 - `GET /v1/catalog` — every repository served, with its tree hash and indexer version.
 - `GET /v1/code/symbols?repo_id=mini` — deterministic definition outline.
 - `POST /v1/code/ask` — answer or fixed refusal with path:line citations.
-- `GET /v1/code/history?repo_id=mini&path=app/main.py` — optional read-only git log/blame
-  (or `503 capability_missing` when git or a work tree is absent).
+- `GET /v1/code/history?repo_id=mini&path=app/main.py` — committed fixture history snapshot
+  (`200` on packaged fixtures; `404` unknown path; `503` only when neither snapshot nor local
+  git is available).
+- `GET /v1/code/refs?repo_id=mini&symbol=create_app` — Python AST incoming call sites
+  (empty list is a leaf, not a failure).
 - `GET /` and `GET /ask` — accessible ask console, local or hosted.
 
 ### `repo_id` is a catalog identifier

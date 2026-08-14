@@ -41,6 +41,10 @@ class RepositoryMetadata(BaseModel):
     ``tree_hash`` identifies the exact file set indexed, and ``indexer_version``
     identifies the rules that read it. Two instances reporting the same pair are
     answering from the same index; either one differing explains why they differ.
+
+    ``source_sha`` / ``source_repo`` are optional honesty fields for fixtures
+    dogfooded from an upstream product (e.g. production_rag). They name the
+    pinned commit the snapshot was taken from — never a claim of live clone.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -51,6 +55,8 @@ class RepositoryMetadata(BaseModel):
     chunk_count: int = Field(ge=0)
     tree_hash: str = Field(min_length=1)
     indexer_version: str = Field(min_length=1)
+    source_sha: str | None = None
+    source_repo: str | None = None
 
 
 class HistoryEntryModel(BaseModel):
@@ -74,3 +80,28 @@ class HistoryResponse(BaseModel):
     path: str = Field(min_length=1)
     mode: str = Field(min_length=1)
     entries: list[HistoryEntryModel]
+
+
+class CallSiteModel(BaseModel):
+    """One Python call expression that names a catalog definition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=1)
+    line: int = Field(ge=1)
+    caller_qualname: str = Field(min_length=1)
+    callee_name: str = Field(min_length=1)
+
+
+class IncomingRefsResponse(BaseModel):
+    """Incoming call sites for one symbol inside a catalog repository.
+
+    Zero callers is a valid leaf answer, not a missing capability.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    repo_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    qualname: str = Field(min_length=1)
+    callers: list[CallSiteModel]

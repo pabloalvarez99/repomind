@@ -11,6 +11,7 @@ from pathspec import GitIgnoreSpec
 
 ALWAYS_IGNORED: Final = (
     ".git/",
+    ".repomind/",
     ".venv/",
     "venv/",
     "__pycache__/",

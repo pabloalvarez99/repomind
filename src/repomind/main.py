@@ -23,6 +23,7 @@ from repomind.answer import (
     CodeSymbol,
     HistoryEntryModel,
     HistoryResponse,
+    IncomingRefsResponse,
     RepositoryMetadata,
 )
 from repomind.catalog import (
@@ -40,6 +41,8 @@ from repomind.history import (
     CapabilityMissing,
     GitHistoryService,
     HistoryMode,
+    HistoryPathNotFound,
+    HistoryService,
     UnsafeHistoryPath,
 )
 
@@ -89,13 +92,13 @@ def _package_path(name: str) -> Path:
 def create_app(
     service: CodeAskService | None = None,
     *,
-    history_service: GitHistoryService | None = None,
+    history_service: HistoryService | GitHistoryService | None = None,
 ) -> FastAPI:
     """Build an isolated API application over an injectable code service."""
     roots = catalog_roots()
     code_service = CodeAskService.from_roots(roots) if service is None else service
-    git_history = (
-        GitHistoryService(roots) if history_service is None else history_service
+    path_history = (
+        HistoryService(roots) if history_service is None else history_service
     )
     app = FastAPI(
         title="RepoMind",
@@ -146,6 +149,11 @@ def create_app(
     async def _unsafe_history_path(request: Request, error: Exception) -> JSONResponse:
         """History paths are catalog-relative only; escape attempts are 400."""
         return _repo_id_error(400, "path is not a catalog-relative file")
+
+    @app.exception_handler(HistoryPathNotFound)
+    async def _history_path_not_found(request: Request, error: Exception) -> JSONResponse:
+        """Well-formed path that names no file in the catalog root is 404."""
+        return _repo_id_error(404, "path not found in catalog repository")
 
     @app.middleware("http")
     async def request_context(
@@ -201,6 +209,26 @@ def create_app(
             },
         )
 
+    @app.get("/refs", response_class=HTMLResponse, include_in_schema=False)
+    def refs_console(
+        request: Request,
+        symbol: str = Query(min_length=1, max_length=256),
+        repo_id: str = Query(default=MINI_REPO_ID),
+    ) -> HTMLResponse:
+        """Render incoming Python call sites for one symbol in a catalog repo."""
+        refs = code_service.incoming_refs(repo_id=repo_id, symbol=symbol)
+        return templates.TemplateResponse(
+            request=request,
+            name="index.html",
+            context={
+                "repo_ids": catalog_ids(),
+                "selected_repo": repo_id,
+                "refs_symbol": symbol,
+                "refs": refs,
+                "request_id": request.state.request_id,
+            },
+        )
+
     @app.get("/health", response_model=HealthResponse, tags=["ops"])
     def health() -> HealthResponse:
         """Report that the API process is alive."""
@@ -226,6 +254,18 @@ def create_app(
         """Return a deterministic AST outline for a catalog repository."""
         return code_service.symbols(repo_id=repo_id)
 
+    @app.get("/v1/code/refs", response_model=IncomingRefsResponse, tags=["code"])
+    def code_refs(
+        symbol: str = Query(min_length=1, max_length=256),
+        repo_id: str = MINI_REPO_ID,
+    ) -> IncomingRefsResponse:
+        """Return Python AST incoming call sites for one symbol (fixture-only).
+
+        Zero callers is a leaf, not an error. Unknown symbols also return an
+        empty caller list rather than inventing edges.
+        """
+        return code_service.incoming_refs(repo_id=repo_id, symbol=symbol)
+
     @app.get("/v1/code/history", response_model=HistoryResponse, tags=["code"])
     def code_history(
         repo_id: str = MINI_REPO_ID,
@@ -233,13 +273,14 @@ def create_app(
         mode: HistoryMode = "log",
         limit: int = Query(default=DEFAULT_HISTORY_LIMIT, ge=1, le=MAX_HISTORY_LIMIT),
     ) -> HistoryResponse:
-        """Return read-only git log or blame for one path inside a catalog repo.
+        """Return read-only log or blame for one path inside a catalog repo.
 
-        Requires a local ``git`` binary and a catalog root that is itself a git
-        work tree. Missing either is ``503 capability_missing``, never a silent
-        empty list. There is no remote, clone, or upload surface.
+        Packaged fixtures answer from a committed ``.repomind/history.jsonl``
+        snapshot (no ``git(1)`` required). Roots without a snapshot may fall
+        back to local git. Missing both is ``503 capability_missing``. There is
+        no remote, clone, or upload surface.
         """
-        result = git_history.history(
+        result = path_history.history(
             repo_id=repo_id, path=path, mode=mode, limit=limit
         )
         return HistoryResponse(

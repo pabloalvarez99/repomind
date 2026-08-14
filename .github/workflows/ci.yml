@@ -72,7 +72,7 @@ jobs:
           dogfood=$(curl --fail --silent http://127.0.0.1:8020/v1/code/ask \
             -H 'content-type: application/json' \
             -d '{"question":"Where is run_query defined?","repo_id":"production_rag"}')
-          DOGFOOD="$dogfood" python -c 'import json, os; payload=json.loads(os.environ["DOGFOOD"]); citation=payload["citations"][0]; assert citation["path"] == "production_rag/query_pipeline.py"; assert citation["start_line"] == 220'
+          DOGFOOD="$dogfood" python -c 'import json, os; payload=json.loads(os.environ["DOGFOOD"]); citation=payload["citations"][0]; assert citation["path"] == "production_rag/query_pipeline.py"; assert citation["start_line"] == 244; assert citation["end_line"] == 277'
           check_repo_id() {
             status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
               http://127.0.0.1:8020/v1/code/ask -H 'content-type: application/json' \
@@ -84,7 +84,7 @@ jobs:
           check_repo_id '' 422
           check_repo_id '   ' 422
           catalog=$(curl --fail --silent http://127.0.0.1:8020/v1/catalog)
-          CATALOG="$catalog" python -c 'import json, os; entries=json.loads(os.environ["CATALOG"]); assert [e["repo_id"] for e in entries] == ["mini", "mini_js", "production_rag"]; assert all(len(e["tree_hash"]) == 64 and e["chunk_count"] > 0 for e in entries)'
+          CATALOG="$catalog" python -c 'import json, os; entries=json.loads(os.environ["CATALOG"]); assert [e["repo_id"] for e in entries] == ["mini", "mini_js", "production_rag"]; assert all(len(e["tree_hash"]) == 64 and e["chunk_count"] > 0 for e in entries); by={e["repo_id"]:e for e in entries}; assert by["production_rag"]["source_sha"] == "d43f81265842c95130a4b064cfca8a220dfd5431"'
           symbols=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/symbols?repo_id=mini')
           SYMBOLS="$symbols" python -c 'import json, os; payload=json.loads(os.environ["SYMBOLS"]); assert payload[0]["qualname"] == "create_app"'
           js=$(curl --fail --silent http://127.0.0.1:8020/v1/code/ask \
@@ -93,12 +93,19 @@ jobs:
           JS="$js" python -c 'import json, os; payload=json.loads(os.environ["JS"]); citation=payload["citations"][0]; assert citation["path"] == "src/foo.js"; assert citation["start_line"] >= 1'
           history=$(curl --silent --output /tmp/history.json --write-out '%{http_code}' \
             'http://127.0.0.1:8020/v1/code/history?repo_id=mini&path=app/main.py')
-          test "$history" = "503" || { echo "history expected 503 capability_missing on plain fixtures, got $history"; cat /tmp/history.json; exit 1; }
-          HISTORY="$(cat /tmp/history.json)" python -c 'import json, os; body=json.loads(os.environ["HISTORY"]); assert body["detail"]=="capability_missing"; assert body["capability"]=="git_history"'
+          test "$history" = "200" || { echo "history expected 200 from committed snapshot, got $history"; cat /tmp/history.json; exit 1; }
+          HISTORY="$(cat /tmp/history.json)" python -c 'import json, os; body=json.loads(os.environ["HISTORY"]); assert body["repo_id"]=="mini"; assert body["path"]=="app/main.py"; assert body["entries"] and body["entries"][0]["sha"]'
+          history_missing=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            'http://127.0.0.1:8020/v1/code/history?repo_id=mini&path=app/nope.py')
+          test "$history_missing" = "404" || { echo "history missing path expected 404, got $history_missing"; exit 1; }
+          refs=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/refs?repo_id=mini&symbol=create_app')
+          REFS="$refs" python -c 'import json, os; body=json.loads(os.environ["REFS"]); assert body["qualname"]=="create_app"; assert len(body["callers"]) >= 1'
+          leaf=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/refs?repo_id=mini&symbol=health')
+          LEAF="$leaf" python -c 'import json, os; body=json.loads(os.environ["LEAF"]); assert body["callers"] == []'
           ui=$(curl --fail --silent --get http://127.0.0.1:8020/ask \
             --data-urlencode 'question=Where is run_query defined?' \
             --data-urlencode 'repo_id=production_rag')
-          UI="$ui" python -c 'import os; page=os.environ["UI"]; assert "production_rag/query_pipeline.py:220-250" in page; assert "request_id" in page'
+          UI="$ui" python -c 'import os; page=os.environ["UI"]; assert "production_rag/query_pipeline.py:244-277" in page; assert "request_id" in page; assert "Who calls a symbol" in page'
 
       - name: Show the API log after a failure
         if: failure()
