@@ -24,6 +24,7 @@ def test_locate_create_app_returns_the_exact_path_and_lines() -> None:
     assert results[0].chunk.path == "app/main.py"
     assert results[0].chunk.start_line == 6
     assert results[0].chunk.end_line == 9
+    assert len(results) == 1
 
 
 def test_exact_symbol_lookup_supports_method_leaf_names() -> None:

@@ -27,8 +27,10 @@ def _snippet(result: SearchResult) -> str:
 def _render_result(result: SearchResult, marker: int) -> str:
     """Render one retrieved definition without inferring its behavior."""
     chunk = result.chunk
+    kind = chunk.kind.replace("_", " ")
+    article = "an" if kind.startswith("a") else "a"
     return (
-        f"[{marker}] `{chunk.qualname}` is a {chunk.kind.replace('_', ' ')} in "
+        f"[{marker}] `{chunk.qualname}` is {article} {kind} in "
         f"`{chunk.path}` at lines {chunk.start_line}-{chunk.end_line}."
     )
 

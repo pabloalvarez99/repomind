@@ -1,0 +1,14 @@
+{"id":"locate-create-app","question":"Where is create_app defined?","expected_path":"app/main.py","expected_symbol":"create_app"}
+{"id":"create-application","question":"Which function creates the fixture application?","expected_path":"app/main.py","expected_symbol":"create_app"}
+{"id":"mini-service-name","question":"Which function returns the application name mini?","expected_path":"app/main.py","expected_symbol":"create_app"}
+{"id":"locate-health","question":"Where is health defined?","expected_path":"app/main.py","expected_symbol":"health"}
+{"id":"liveness-payload","question":"Which code returns the fixture process liveness payload?","expected_path":"app/main.py","expected_symbol":"health"}
+{"id":"locate-service-class","question":"Where is GreetingService defined?","expected_path":"app/service.py","expected_symbol":"GreetingService"}
+{"id":"locate-greet","question":"Where is greet defined?","expected_path":"app/service.py","expected_symbol":"GreetingService.greet"}
+{"id":"render-greeting","question":"Which method renders a greeting for a name?","expected_path":"app/service.py","expected_symbol":"GreetingService.greet"}
+{"id":"locate-constructor","question":"Where is GreetingService.__init__ defined?","expected_path":"app/service.py","expected_symbol":"GreetingService.__init__"}
+{"id":"configured-prefix","question":"Which code stores the configured greeting prefix?","expected_path":"app/service.py","expected_symbol":"GreetingService.__init__"}
+{"id":"refuse-antarctic","question":"Who won the Antarctic chess championship?","expect_refusal":true}
+{"id":"refuse-database","question":"Where is the database migration runner?","expect_refusal":true}
+{"id":"refuse-gitignored-file","question":"Where is must_not_be_indexed defined?","expect_refusal":true}
+{"id":"refuse-generated-file","question":"Where is generated_symbol defined?","expect_refusal":true}

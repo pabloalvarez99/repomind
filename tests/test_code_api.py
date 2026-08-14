@@ -21,6 +21,7 @@ def test_ask_locates_create_app_with_path_line_citations() -> None:
     assert body["citations"][0]["start_line"] == 6
     assert body["citations"][0]["end_line"] == 9
     assert "def create_app" in body["citations"][0]["snippet"]
+    assert len(body["citations"]) == 1
 
 
 def test_ask_refuses_when_no_code_evidence_matches() -> None:

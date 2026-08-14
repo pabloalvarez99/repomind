@@ -14,8 +14,8 @@ end to end without API keys, network calls, or billed providers.
 | M1 | Repository walk and AST chunks | LIVE |
 | M2 | In-memory symbol and token index | LIVE |
 | M3 | Code Q&A with path:line citations | LIVE |
-| M4 | JSON CLI | PLANNED |
-| M5 | Fixture evaluation harness | PLANNED |
+| M4 | JSON CLI | LIVE |
+| M5 | Fixture evaluation harness | LIVE |
 
 ## Try the free path
 
@@ -35,6 +35,13 @@ curl -s http://127.0.0.1:8020/v1/code/ask \
 
 The default path is deterministic and offline. `.env.example` contains only empty
 placeholders; RepoMind does not read them.
+
+Ask from the command line; stdout is exactly one JSON object:
+
+```bash
+python -m repomind ask "Where is create_app defined?" --fixture mini
+python -m repomind.evals.run
+```
 
 ## Architecture
 
@@ -59,6 +66,11 @@ M3 exposes `POST /v1/code/ask`. Every answer sentence identifies a retrieved def
 every citation carries its repository-relative path and exact AST line range. No match produces
 an explicit refusal with an empty citation list. Repository ids select a fixed catalog; they are
 never interpreted as caller-controlled filesystem paths.
+
+M4 and M5 put the same service behind a JSON CLI and a committed 14-question fixture gate.
+The gate covers exact symbols, prose retrieval, line citations, refusals, and definitions in
+gitignored files. It is a regression check for this fixture—not a claim about arbitrary-repo
+answer quality—and reports `judge: null` and `billed_usd: 0.0`.
 
 ## License
 

@@ -85,6 +85,7 @@ class InMemoryCodeIndex:
             return ()
 
         ranked: list[SearchResult] = []
+        exact_ranked: list[SearchResult] = []
         for chunk in self._chunks:
             leaf = chunk.qualname.rsplit(".", maxsplit=1)[-1].casefold()
             symbol_terms = terms(chunk.qualname)
@@ -102,7 +103,9 @@ class InMemoryCodeIndex:
             )
             if score:
                 matched = tuple(sorted(symbol_overlap | path_overlap | text_overlap))
-                ranked.append(SearchResult(chunk=chunk, score=score, matched_terms=matched))
+                result = SearchResult(chunk=chunk, score=score, matched_terms=matched)
+                (exact_ranked if exact else ranked).append(result)
 
-        ranked.sort(key=lambda result: (-result.score, result.chunk.chunk_id))
-        return tuple(ranked[:limit])
+        selected = exact_ranked or ranked
+        selected.sort(key=lambda result: (-result.score, result.chunk.chunk_id))
+        return tuple(selected[:limit])
