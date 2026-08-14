@@ -128,9 +128,13 @@ def check_program_difficulty(
                 failures.append(f"{case.case_id}: cross-file cannot be refusal")
                 continue
             if not case.mention_path or not case.expected_path:
-                failures.append(f"{case.case_id}: cross-file requires mention_path and expected_path")
+                failures.append(
+                    f"{case.case_id}: cross-file requires mention_path and expected_path"
+                )
             elif case.mention_path == case.expected_path:
-                failures.append(f"{case.case_id}: cross-file mention_path equals expected_path")
+                failures.append(
+                    f"{case.case_id}: cross-file mention_path equals expected_path"
+                )
         if case.slice == "unanswerable" and not case.expect_refusal:
             failures.append(f"{case.case_id}: unanswerable must expect_refusal")
         if case.slice == "js-symbol" and case.expected_path and not case.expected_path.endswith(
@@ -184,7 +188,8 @@ def check_program_difficulty(
                 f"({trivial}/{len(answerable)}); rewrite questions or labels"
             )
         # Soft bar: more than 80% exact rank-1 also fails for stress slices.
-        if len(answerable) >= 3 and trivial / len(answerable) > 0.8 and slice_name != "rename/history":
+        ratio = trivial / len(answerable)
+        if len(answerable) >= 3 and ratio > 0.8 and slice_name != "rename/history":
             failures.append(
                 f"slice {slice_name!r} is >80% trivial exact-symbol rank-1 "
                 f"({trivial}/{len(answerable)})"

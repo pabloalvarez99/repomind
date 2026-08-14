@@ -19,7 +19,7 @@ from repomind.catalog import MINI_REPO_ID, UnknownRepository, validate_repo_id
 from repomind.index import InMemoryCodeIndex, SearchResult
 from repomind.ingest import IncrementalIngestor, IngestStats, RepositorySnapshot
 from repomind.ingest.call_graph import CallSite, build_incoming_refs, incoming_for
-from repomind.ingest.renames import RenameRecord, find_rename, load_renames
+from repomind.ingest.renames import RenameRecord, load_renames
 
 REFUSAL: Final = "I could not find code evidence that answers this question."
 MAX_CITATIONS: Final = 3

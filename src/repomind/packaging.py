@@ -6,7 +6,7 @@ import json
 import shutil
 import tarfile
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -82,7 +82,7 @@ def pack_catalog(
         format_version=1,
         repomind_version=__version__,
         indexer_version=INDEXER_VERSION,
-        created_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        created_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
         repositories=repositories,
         billed_usd=0.0,
     )
@@ -94,7 +94,10 @@ def pack_catalog(
     if not as_tarball:
         return work
 
-    archive = destination if str(destination).endswith(".tar.gz") else Path(str(destination) + ".tar.gz")
+    if str(destination).endswith(".tar.gz"):
+        archive = destination
+    else:
+        archive = Path(str(destination) + ".tar.gz")
     with tarfile.open(archive, "w:gz") as handle:
         handle.add(work, arcname=work.name)
     shutil.rmtree(work)

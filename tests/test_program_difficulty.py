@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from repomind.catalog import PRODUCTION_RAG_REPO_ID, catalog_roots
@@ -28,16 +29,38 @@ def test_program_set_meets_n_and_passes_with_difficulty() -> None:
 
 def test_difficulty_rejects_all_easy_stress_slice(tmp_path: Path) -> None:
     """A stress slice made of exact-symbol rank-1 locates must fail integrity."""
+    rows = [
+        {
+            "id": "a",
+            "question": "Where is create_app defined?",
+            "repo_id": "mini",
+            "slice": "cross-file",
+            "expected_path": "app/main.py",
+            "expected_symbol": "create_app",
+            "mention_path": "app/service.py",
+        },
+        {
+            "id": "b",
+            "question": "Where is health defined?",
+            "repo_id": "mini",
+            "slice": "cross-file",
+            "expected_path": "app/main.py",
+            "expected_symbol": "health",
+            "mention_path": "app/service.py",
+        },
+        {
+            "id": "c",
+            "question": "Where is boot defined?",
+            "repo_id": "mini",
+            "slice": "cross-file",
+            "expected_path": "app/main.py",
+            "expected_symbol": "boot",
+            "mention_path": "app/service.py",
+        },
+    ]
     path = tmp_path / "bad.jsonl"
     path.write_text(
-        "\n".join(
-            [
-                '{"id":"a","question":"Where is create_app defined?","repo_id":"mini","slice":"cross-file","expected_path":"app/main.py","expected_symbol":"create_app","mention_path":"app/service.py"}',
-                '{"id":"b","question":"Where is health defined?","repo_id":"mini","slice":"cross-file","expected_path":"app/main.py","expected_symbol":"health","mention_path":"app/service.py"}',
-                '{"id":"c","question":"Where is boot defined?","repo_id":"mini","slice":"cross-file","expected_path":"app/main.py","expected_symbol":"boot","mention_path":"app/service.py"}',
-            ]
-        )
-        + "\n",
+        "\n".join(json.dumps(row, ensure_ascii=True) for row in rows) + "\n",
         encoding="utf-8",
     )
     cases = load_program_cases(path)
