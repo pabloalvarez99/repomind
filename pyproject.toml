@@ -41,7 +41,7 @@ packages = ["src/repomind"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 
 [tool.ruff]
 line-length = 100
@@ -63,3 +63,6 @@ convention = "google"
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+# tests/test_capture_assets.py imports the sidecar writer so the test and the tool
+# authors run cannot drift apart; scripts/ is not a package.
+mypy_path = "scripts"

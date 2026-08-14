@@ -3,6 +3,11 @@
 Playwright is documentation-only, so CI never regenerates the PNGs. Instead these
 tests hash the committed bytes against `docs/assets/ui-captures.sha256`, which the
 capture script prints and the author commits alongside any template change.
+
+A second sidecar, `docs/assets/ui-sources.sha256`, hashes the template, stylesheet,
+console script, and capture script. Without it a CSS or HTML edit would ship green
+while the committed screenshots still showed the old console: nothing in CI can tell
+that the PNGs are stale, only that they are unchanged.
 """
 
 from __future__ import annotations
@@ -11,9 +16,12 @@ import hashlib
 import re
 from pathlib import Path
 
+import hash_ui_assets
+
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "docs" / "assets"
 MANIFEST = ASSETS / "ui-captures.sha256"
+SOURCE_MANIFEST = ASSETS / "ui-sources.sha256"
 
 # Documents that publish console evidence, mapped to the directory their image
 # links resolve against.
@@ -84,6 +92,26 @@ def test_committed_bytes_match_the_manifest_hashes() -> None:
             f"{relative} changed without a manifest update; "
             "rerun scripts/capture_ui.py and commit the printed sha256 values"
         )
+
+
+def test_ui_sources_are_hashed_so_a_template_change_cannot_ship_stale_captures() -> None:
+    recorded = SOURCE_MANIFEST.read_text(encoding="utf-8")
+    assert recorded == hash_ui_assets.source_manifest(), (
+        "a file that decides the rendered console changed without new evidence; "
+        "rerun scripts/capture_ui.py, then scripts/hash_ui_assets.py, and commit both "
+        "sidecars in the same commit as the change"
+    )
+
+
+def test_the_sidecar_writer_reproduces_the_committed_capture_hashes() -> None:
+    # The writer and these tests must not drift apart: CONTRIBUTING tells authors to
+    # run the writer, so the writer's output is what CI has to accept.
+    assert MANIFEST.read_text(encoding="utf-8") == hash_ui_assets.capture_manifest()
+
+
+def test_hashed_ui_sources_all_exist() -> None:
+    for relative in hash_ui_assets.SOURCE_PATHS:
+        assert (ROOT / relative).is_file(), f"{relative} is hashed but missing from the tree"
 
 
 def test_every_capture_is_published_by_a_document() -> None:
