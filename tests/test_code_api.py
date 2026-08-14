@@ -96,7 +96,22 @@ def test_path_shaped_repository_ids_are_rejected_before_any_lookup(repo_id: str)
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize("repo_id", ["mini", "production_rag"])
+def test_post_accepts_mini_js_and_cites_foo() -> None:
+    """Week-3 free-path JS golden: where is foo defined → path:line."""
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/v1/code/ask",
+            json={"question": "Where is foo defined?", "repo_id": "mini_js"},
+        )
+
+    assert response.status_code == 200
+    citation = response.json()["citations"][0]
+    assert citation["path"] == "src/foo.js"
+    assert citation["start_line"] >= 1
+    assert "`foo`" in response.json()["answer"]
+
+
+@pytest.mark.parametrize("repo_id", ["mini", "production_rag", "mini_js"])
 def test_every_surface_agrees_on_a_catalog_id(repo_id: str) -> None:
     """POST, the console, and the symbols outline share one validity function."""
     with TestClient(create_app()) as client:
@@ -136,6 +151,45 @@ def test_blank_question_is_rejected() -> None:
         response = client.post("/v1/code/ask", json={"question": "   "})
 
     assert response.status_code == 422
+
+
+def test_catalog_lists_every_repository_with_its_content_address() -> None:
+    """A caller can see what this instance indexes without guessing an id."""
+    with TestClient(create_app()) as client:
+        response = client.get("/v1/catalog")
+
+    assert response.status_code == 200
+    entries = response.json()
+    assert [entry["repo_id"] for entry in entries] == ["mini", "mini_js", "production_rag"]
+    for entry in entries:
+        assert set(entry) == {
+            "repo_id",
+            "file_count",
+            "indexed_file_count",
+            "chunk_count",
+            "tree_hash",
+            "indexer_version",
+        }
+        assert len(entry["tree_hash"]) == 64
+        assert entry["indexed_file_count"] <= entry["file_count"]
+        assert entry["chunk_count"] > 0
+
+
+def test_catalog_is_stable_across_requests() -> None:
+    """The tree hash addresses committed bytes, so it cannot drift per request."""
+    with TestClient(create_app()) as client:
+        first = client.get("/v1/catalog").json()
+        second = client.get("/v1/catalog").json()
+
+    assert first == second
+
+
+def test_catalog_takes_no_arguments_that_could_name_a_path() -> None:
+    """The route that says what exists is not a place to ask for something else."""
+    with TestClient(create_app()) as client:
+        document = client.get("/openapi.json").json()
+
+    assert document["paths"]["/v1/catalog"]["get"].get("parameters", []) == []
 
 
 def test_openapi_contains_the_exact_code_ask_route() -> None:
@@ -182,6 +236,7 @@ def test_console_is_accessible_and_has_no_cdn_dependency() -> None:
     assert '<label for="question">' in response.text
     assert 'value="mini"' in response.text
     assert 'value="production_rag"' in response.text
+    assert 'value="mini_js"' in response.text
     assert "https://" not in response.text
 
 

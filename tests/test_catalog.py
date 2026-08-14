@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from repomind.catalog import (
+    MINI_JS_REPO_ID,
     MINI_REPO_ID,
     PRODUCTION_RAG_CATALOG_ENV,
     PRODUCTION_RAG_REPO_ID,
@@ -18,12 +19,13 @@ from repomind.catalog import (
 )
 
 
-def test_catalog_contains_only_the_two_declared_ids() -> None:
+def test_catalog_contains_only_the_declared_ids() -> None:
     """The public id never becomes an arbitrary filesystem selector."""
     roots = catalog_roots(allow_environment=False)
 
-    assert tuple(roots) == (MINI_REPO_ID, PRODUCTION_RAG_REPO_ID)
+    assert tuple(roots) == (MINI_REPO_ID, PRODUCTION_RAG_REPO_ID, MINI_JS_REPO_ID)
     assert (roots[PRODUCTION_RAG_REPO_ID] / "NOTICE.md").is_file()
+    assert (roots[MINI_JS_REPO_ID] / "src" / "foo.js").is_file()
 
 
 def test_local_override_replaces_only_production_rag(
@@ -60,10 +62,10 @@ def test_the_allowlist_does_not_move_with_the_environment(
     """The override replaces a root; it never adds or renames an id."""
     monkeypatch.setenv(PRODUCTION_RAG_CATALOG_ENV, str(tmp_path))
 
-    assert catalog_ids() == (MINI_REPO_ID, PRODUCTION_RAG_REPO_ID)
+    assert catalog_ids() == (MINI_REPO_ID, PRODUCTION_RAG_REPO_ID, MINI_JS_REPO_ID)
 
 
-@pytest.mark.parametrize("repo_id", [MINI_REPO_ID, PRODUCTION_RAG_REPO_ID])
+@pytest.mark.parametrize("repo_id", [MINI_REPO_ID, PRODUCTION_RAG_REPO_ID, MINI_JS_REPO_ID])
 def test_every_catalog_id_validates(repo_id: str) -> None:
     """No published id may be unreachable through the public contract."""
     assert validate_repo_id(repo_id) == repo_id

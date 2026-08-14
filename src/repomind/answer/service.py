@@ -6,10 +6,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
 
-from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol
+from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol, RepositoryMetadata
 from repomind.catalog import MINI_REPO_ID, UnknownRepository, validate_repo_id
 from repomind.index import InMemoryCodeIndex, SearchResult
-from repomind.ingest import chunk_repository
+from repomind.ingest import IncrementalIngestor, IngestStats, RepositorySnapshot
 
 REFUSAL: Final = "I could not find code evidence that answers this question."
 MAX_CITATIONS: Final = 3
@@ -37,19 +37,67 @@ def _render_result(result: SearchResult, marker: int) -> str:
 class CodeAskService:
     """Answer from one of a fixed set of in-memory repository indexes."""
 
-    def __init__(self, indexes: Mapping[str, InMemoryCodeIndex]) -> None:
-        """Store an immutable copy of the allowed repository catalog."""
+    def __init__(
+        self,
+        indexes: Mapping[str, InMemoryCodeIndex],
+        *,
+        ingestors: Mapping[str, IncrementalIngestor] | None = None,
+        snapshots: Mapping[str, RepositorySnapshot] | None = None,
+    ) -> None:
+        """Store an immutable copy of the allowed repository catalog.
+
+        ``ingestors`` and ``snapshots`` are optional so a test may still inject
+        bare indexes. Without them the service answers questions but reports no
+        catalog metadata, because it has no addressed tree to report.
+        """
         self._indexes = dict(indexes)
+        self._ingestors = dict(ingestors or {})
+        self._snapshots = dict(snapshots or {})
 
     @classmethod
     def from_roots(cls, roots: Mapping[str, Path]) -> CodeAskService:
-        """Build one AST index per configured repository id."""
+        """Build one content-addressed index per configured repository id."""
+        ingestors = {repo_id: IncrementalIngestor(root) for repo_id, root in roots.items()}
+        snapshots = {repo_id: ingestor.ingest().snapshot for repo_id, ingestor in ingestors.items()}
         return cls(
             {
-                repo_id: InMemoryCodeIndex(chunk_repository(root))
-                for repo_id, root in roots.items()
-            }
+                repo_id: InMemoryCodeIndex(snapshot.chunks)
+                for repo_id, snapshot in snapshots.items()
+            },
+            ingestors=ingestors,
+            snapshots=snapshots,
         )
+
+    def catalog(self) -> list[RepositoryMetadata]:
+        """Return addressable metadata for every repository this service serves."""
+        return [
+            RepositoryMetadata(
+                repo_id=repo_id,
+                file_count=snapshot.file_count,
+                indexed_file_count=snapshot.indexed_file_count,
+                chunk_count=snapshot.chunk_count,
+                tree_hash=snapshot.tree_hash,
+                indexer_version=snapshot.indexer_version,
+            )
+            for repo_id, snapshot in sorted(self._snapshots.items())
+        ]
+
+    def reindex(self, *, repo_id: str) -> IngestStats:
+        """Re-ingest one repository, reusing every file whose bytes are unchanged.
+
+        Returns:
+            What the ingest actually did. An unchanged tree parses nothing.
+
+        Raises:
+            BlankRepositoryId: ``repo_id`` is empty or only whitespace.
+            MalformedRepositoryId: ``repo_id`` is not a catalog identifier.
+            UnknownRepository: ``repo_id`` is not in the configured catalog.
+        """
+        validated = validate_repo_id(repo_id, known=self._ingestors)
+        outcome = self._ingestors[validated].ingest()
+        self._snapshots[validated] = outcome.snapshot
+        self._indexes[validated] = InMemoryCodeIndex(outcome.snapshot.chunks)
+        return outcome.stats
 
     def _index_for(self, repo_id: str) -> InMemoryCodeIndex:
         """Resolve a caller-supplied id through the one validity function.

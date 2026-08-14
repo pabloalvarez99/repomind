@@ -37,6 +37,8 @@ screenshots are [below](#evidence-you-can-see-without-running-anything).
 | M6 | Production RAG snapshot, closed catalog and symbol outline | LIVE |
 | M7 | Local ask console, release docs and container | LIVE |
 | M8 | Hosted free-path ask console | LIVE |
+| M9 | Content-addressed incremental index + catalog metadata | LIVE |
+| M10 | Free-path JS/TS fixture + optional git history | LIVE |
 
 ## Hosted demo
 
@@ -50,10 +52,19 @@ curl -s https://pax-repomind.vercel.app/v1/code/ask \
 ```
 
 The hosted instance answers over the same committed fixtures as the local path: the `mini`
-regression repository and the frozen `production_rag` snapshot. It indexes those fixtures
-and nothing else, so it cannot answer about an arbitrary repository. Lexical retrieval over
-a small fixture — evidence that the citation path works end to end, not a state-of-the-art
-code-RAG result.
+regression repository, the frozen `production_rag` snapshot, and the tiny `mini_js`
+JavaScript/TypeScript fixture. It indexes those fixtures and nothing else, so it cannot
+answer about an arbitrary repository. Lexical retrieval over a small fixture — evidence that
+the citation path works end to end, not a state-of-the-art code-RAG result.
+
+The former contract bug is fixed: `repo_id=production_rag` works on `POST /v1/code/ask`
+(underscore allowed because ids come from the catalog, not a slug regex):
+
+```bash
+curl -s https://pax-repomind.vercel.app/v1/code/ask \
+  -H 'content-type: application/json' \
+  -d '{"question":"Where is reciprocal_rank_fusion defined?","repo_id":"production_rag"}'
+```
 
 ## Evidence you can see without running anything
 
@@ -116,9 +127,10 @@ python -m repomind.evals.dogfood
 ## Architecture
 
 ```text
-repository → safe walk → Python AST chunks → in-memory index
+repository → safe walk → Python AST + free-path JS chunks → content-addressed index
 question   → symbol/token retrieval → grounded answer or refusal
                                       └─ path:start_line-end_line citations
+optional   → git log/blame on catalog path (or capability_missing)
 ```
 
 The committed 14-question mini gate and 8-question Production RAG dogfood gate run offline.
@@ -153,18 +165,44 @@ answer quality—and reports `judge: null` and `billed_usd: 0.0`.
 ## API surface
 
 - `GET /health` — liveness and version.
+- `GET /v1/catalog` — every repository served, with its tree hash and indexer version.
 - `GET /v1/code/symbols?repo_id=mini` — deterministic definition outline.
 - `POST /v1/code/ask` — answer or fixed refusal with path:line citations.
+- `GET /v1/code/history?repo_id=mini&path=app/main.py` — optional read-only git log/blame
+  (or `503 capability_missing` when git or a work tree is absent).
 - `GET /` and `GET /ask` — accessible ask console, local or hosted.
 
 ### `repo_id` is a catalog identifier
 
 Every surface above resolves `repo_id` through one function, `repomind.catalog.validate_repo_id`,
-whose allowlist is derived from `catalog_roots()`. The valid ids are exactly `mini` and
-`production_rag` — an id is an identifier the catalog hands out, not a URL slug, so an underscore
+whose allowlist is derived from `catalog_roots()`. The valid ids are `mini`, `production_rag`,
+and `mini_js` — an id is an identifier the catalog hands out, not a URL slug, so an underscore
 in it means nothing and is forbidden by nothing. A blank id is `422`, a path-shaped id such as
 `../../etc` is `400`, and a well-formed id outside the catalog is `404`. The CLI applies the same
 rule, exits `2`, and prints the known ids.
+
+### The index is content-addressed
+
+Every definition carries a `content_hash` over its kind, qualified name, and exact source text.
+Every visible file carries a blob hash, and every repository a `tree_hash` folded from the
+sorted `(path, blob_hash)` pairs plus the `INDEXER_VERSION` that read them. `GET /v1/catalog`
+publishes those, so two instances reporting the same tree hash and indexer version are provably
+answering from the same index.
+
+Ingest is incremental against those addresses: re-ingesting an unchanged repository parses zero
+files, and an edit costs one parse instead of a repository. Source files are hashed after
+CRLF normalization, so one commit checked out on Windows and on Linux advertises one index.
+
+### One more language (plumbing, not SOTA)
+
+Python still uses the stdlib AST. JavaScript/TypeScript uses a free-path top-level scanner on
+the committed `mini_js` fixture (`Where is foo defined?` → `src/foo.js` with a path:line
+citation). Optional `pip install 'repomind[treesitter]'` is available; default CI never
+downloads a grammar. This is multi-language wiring on a fixture, not a language-server claim.
+
+There is no upload endpoint, and there will not be one. The hosted instance indexes only the
+fixtures committed here — see [ADR 0003](docs/adr/0003-content-addressed-catalog-index.md) for
+why a public box that ingests a stranger's archive is a different product with different risks.
 
 The hosted deployment serves this same ASGI app: `main.py` at the repository root imports
 `repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`

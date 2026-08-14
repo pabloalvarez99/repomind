@@ -56,3 +56,17 @@ def test_dogfood_eval_ignores_local_catalog_override(
     summary = evaluate(path, repo_id=PRODUCTION_RAG_REPO_ID)
 
     assert summary["failed"] == 0
+
+
+def test_js_fixture_golden_is_green_and_unbilled() -> None:
+    """Plumbing on a tiny JS fixture: where is foo defined → path:line, $0."""
+    from repomind.catalog import MINI_JS_REPO_ID
+
+    path = default_dataset_path().with_name("js_questions.jsonl")
+    cases = load_cases(path)
+    summary = evaluate(path, repo_id=MINI_JS_REPO_ID)
+
+    assert len(cases) >= 3
+    assert summary["failed"] == 0
+    assert summary["billed_usd"] == 0.0
+    assert summary["judge"] is None

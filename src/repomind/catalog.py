@@ -11,6 +11,7 @@ from typing import Final
 
 MINI_REPO_ID: Final = "mini"
 PRODUCTION_RAG_REPO_ID: Final = "production_rag"
+MINI_JS_REPO_ID: Final = "mini_js"
 PRODUCTION_RAG_CATALOG_ENV: Final = "REPOMIND_CATALOG_PRODUCTION_RAG"
 
 MAX_REPO_ID_LENGTH: Final = 64
@@ -50,6 +51,11 @@ def production_rag_snapshot_root() -> Path:
     return _fixture_root("production_rag")
 
 
+def mini_js_root() -> Path:
+    """Return the committed mini JavaScript/TypeScript fixture."""
+    return _fixture_root("mini_js")
+
+
 def catalog_roots(*, allow_environment: bool = True) -> dict[str, Path]:
     """Return the closed id-to-root catalog.
 
@@ -70,6 +76,7 @@ def catalog_roots(*, allow_environment: bool = True) -> dict[str, Path]:
     return {
         MINI_REPO_ID: mini_root(),
         PRODUCTION_RAG_REPO_ID: production_root,
+        MINI_JS_REPO_ID: mini_js_root(),
     }
 
 
