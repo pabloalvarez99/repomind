@@ -135,3 +135,33 @@ def test_console_renders_an_explicit_refusal() -> None:
     assert response.status_code == 200
     assert re.search(r">\s*refused\s*<", response.text)
     assert "will not manufacture an answer" in response.text
+    assert "copy-location" not in response.text
+
+
+def test_console_offers_a_copy_button_per_path_line_citation() -> None:
+    """Each citation carries a copyable path:line that matches the rendered code."""
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/ask",
+            params={"question": "Where is create_app defined?", "repo_id": "mini"},
+        )
+
+    assert response.status_code == 200
+    locations = re.findall(r'<code class="location">([^<]+)</code>', response.text)
+    copyable = re.findall(r'class="copy-location" data-copy="([^"]+)"', response.text)
+    assert locations == copyable
+    assert "app/main.py:6-9" in copyable
+    # Ships hidden so a browser without JavaScript never shows a dead control.
+    assert response.text.count("hidden>copy</button>") == len(copyable)
+
+
+def test_console_copy_enhancement_is_local_and_progressive() -> None:
+    """The clipboard script is served from the package, never from a CDN."""
+    with TestClient(create_app()) as client:
+        page = client.get("/")
+        script = client.get("/static/app.js")
+
+    assert 'src="http://testserver/static/app.js" defer' in page.text
+    assert script.status_code == 200
+    assert "navigator.clipboard" in script.text
+    assert "https://" not in script.text

@@ -11,6 +11,9 @@
 - `docs/assets/ui-captures.sha256` plus `tests/test_capture_assets.py` close the stale-evidence
   hole: every image published by the README, SHIP, or case study must exist, must be hashed, and
   must match its recorded sha256. CI checks hashes only, so no browser is downloaded.
+- Console citations carry a copy button for their `path:start-end`, shipped hidden and revealed
+  by a local script so a browser without JavaScript never shows a dead control. Captures and
+  hashes regenerated in the same commit.
 - Case study rewritten around four decisions and an explicit account of what the 14/14 and 8/8
   scores do and do not prove; linked above the fold in the README.
 - P1–P5 portfolio series badge strip; SHIP release evidence is now a LIVE-status table.
