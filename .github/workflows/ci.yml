@@ -67,6 +67,20 @@ jobs:
             -H 'content-type: application/json' \
             -d '{"question":"Where is create_app defined?","repo_id":"mini"}')
           RESPONSE="$response" python -c 'import json, os; payload=json.loads(os.environ["RESPONSE"]); citation=payload["citations"][0]; assert citation["path"] == "app/main.py"; assert citation["start_line"] == 6; assert citation["end_line"] == 9'
+          dogfood=$(curl --fail --silent http://127.0.0.1:8020/v1/code/ask \
+            -H 'content-type: application/json' \
+            -d '{"question":"Where is run_query defined?","repo_id":"production_rag"}')
+          DOGFOOD="$dogfood" python -c 'import json, os; payload=json.loads(os.environ["DOGFOOD"]); citation=payload["citations"][0]; assert citation["path"] == "production_rag/query_pipeline.py"; assert citation["start_line"] == 220'
+          check_repo_id() {
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              http://127.0.0.1:8020/v1/code/ask -H 'content-type: application/json' \
+              -d "{\"question\":\"Where is create_app defined?\",\"repo_id\":\"$1\"}")
+            test "$status" = "$2" || { echo "repo_id '$1' returned $status, expected $2"; exit 1; }
+          }
+          check_repo_id 'unknown' 404
+          check_repo_id '../../etc' 400
+          check_repo_id '' 422
+          check_repo_id '   ' 422
           symbols=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/symbols?repo_id=mini')
           SYMBOLS="$symbols" python -c 'import json, os; payload=json.loads(os.environ["SYMBOLS"]); assert payload[0]["qualname"] == "create_app"'
           ui=$(curl --fail --silent --get http://127.0.0.1:8020/ask \

@@ -2,6 +2,7 @@
 
 import re
 
+import pytest
 from fastapi.testclient import TestClient
 
 from repomind.main import create_app
@@ -37,6 +38,24 @@ def test_ask_refuses_when_no_code_evidence_matches() -> None:
     assert body["citations"] == []
 
 
+def test_post_accepts_the_catalog_id_that_contains_an_underscore() -> None:
+    """``production_rag`` is an id the catalog publishes, so POST must take it.
+
+    It used to 422 on a slug-shaped pattern while GET /ask answered the same id,
+    which made the JSON API disagree with the browser about what exists.
+    """
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/v1/code/ask",
+            json={"question": "Where is run_query defined?", "repo_id": "production_rag"},
+        )
+
+    assert response.status_code == 200
+    citation = response.json()["citations"][0]
+    assert citation["path"] == "production_rag/query_pipeline.py"
+    assert citation["start_line"] == 220
+
+
 def test_unknown_repository_id_is_not_treated_as_a_path() -> None:
     """The public id selects a catalog entry and cannot traverse the filesystem."""
     with TestClient(create_app()) as client:
@@ -48,9 +67,67 @@ def test_unknown_repository_id_is_not_treated_as_a_path() -> None:
             "/v1/code/ask",
             json={"question": "Where is create_app?", "repo_id": "../../etc"},
         )
+        empty = client.post(
+            "/v1/code/ask",
+            json={"question": "Where is create_app?", "repo_id": ""},
+        )
+        blank = client.post(
+            "/v1/code/ask",
+            json={"question": "Where is create_app?", "repo_id": "   "},
+        )
 
     assert unknown.status_code == 404
-    assert traversal.status_code == 422
+    assert traversal.status_code == 400
+    assert empty.status_code == 422
+    assert blank.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "repo_id",
+    ["../../etc", "..", "/etc/passwd", "mini/../mini", "C:\\Windows", "mini\x00", "a" * 65],
+)
+def test_path_shaped_repository_ids_are_rejected_before_any_lookup(repo_id: str) -> None:
+    """Nothing that could name a filesystem location reaches the catalog."""
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/v1/code/ask", json={"question": "Where is create_app?", "repo_id": repo_id}
+        )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("repo_id", ["mini", "production_rag"])
+def test_every_surface_agrees_on_a_catalog_id(repo_id: str) -> None:
+    """POST, the console, and the symbols outline share one validity function."""
+    with TestClient(create_app()) as client:
+        posted = client.post(
+            "/v1/code/ask", json={"question": "Where is create_app?", "repo_id": repo_id}
+        )
+        console = client.get(
+            "/ask", params={"question": "Where is create_app?", "repo_id": repo_id}
+        )
+        symbols = client.get("/v1/code/symbols", params={"repo_id": repo_id})
+
+    assert (posted.status_code, console.status_code, symbols.status_code) == (200, 200, 200)
+
+
+@pytest.mark.parametrize(("repo_id", "expected"), [("unknown", 404), ("../../etc", 400)])
+def test_every_surface_rejects_a_bad_id_with_the_same_status(
+    repo_id: str, expected: int
+) -> None:
+    """A bad id cannot be legal on one door and rejected on the next."""
+    with TestClient(create_app()) as client:
+        posted = client.post(
+            "/v1/code/ask", json={"question": "Where is create_app?", "repo_id": repo_id}
+        )
+        console = client.get(
+            "/ask", params={"question": "Where is create_app?", "repo_id": repo_id}
+        )
+        symbols = client.get("/v1/code/symbols", params={"repo_id": repo_id})
+
+    assert posted.status_code == expected
+    assert console.status_code == expected
+    assert symbols.status_code == expected
 
 
 def test_blank_question_is_rejected() -> None:

@@ -8,7 +8,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from repomind.cli import EXIT_ANSWERED, EXIT_REFUSED, main
+import pytest
+
+from repomind.cli import EXIT_ANSWERED, EXIT_BAD_REPO_ID, EXIT_REFUSED, main
 
 
 def test_cli_answer_is_exactly_one_json_line() -> None:
@@ -53,6 +55,19 @@ def test_cli_can_query_the_production_rag_catalog() -> None:
             "production_rag/query_pipeline.py"
         )
         assert len(json.loads(lines[0])["citations"]) == 1
+
+
+@pytest.mark.parametrize("repo_id", ["unknown", "../../etc", "   "])
+def test_cli_rejects_a_bad_repository_id_without_touching_the_filesystem(repo_id: str) -> None:
+    """The CLI shares the HTTP validity function instead of an argparse allowlist."""
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    code = main(["ask", "Where is create_app?", "--repo", repo_id], stdout=stdout, stderr=stderr)
+
+    assert code == EXIT_BAD_REPO_ID
+    assert stdout.getvalue() == ""
+    assert "Known ids: mini, production_rag" in stderr.getvalue()
 
 
 def test_python_module_command_works_outside_the_checkout(tmp_path: Path) -> None:

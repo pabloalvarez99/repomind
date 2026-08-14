@@ -7,15 +7,14 @@ from pathlib import Path
 from typing import Final
 
 from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol
+from repomind.catalog import MINI_REPO_ID, UnknownRepository, validate_repo_id
 from repomind.index import InMemoryCodeIndex, SearchResult
 from repomind.ingest import chunk_repository
 
 REFUSAL: Final = "I could not find code evidence that answers this question."
 MAX_CITATIONS: Final = 3
 
-
-class UnknownRepository(LookupError):
-    """The caller requested a repository id outside the configured catalog."""
+__all__ = ["MAX_CITATIONS", "REFUSAL", "CodeAskService", "UnknownRepository"]
 
 
 def _snippet(result: SearchResult) -> str:
@@ -52,16 +51,25 @@ class CodeAskService:
             }
         )
 
-    def ask(self, question: str, *, repo_id: str = "mini") -> CodeAnswer:
+    def _index_for(self, repo_id: str) -> InMemoryCodeIndex:
+        """Resolve a caller-supplied id through the one validity function.
+
+        Raises:
+            BlankRepositoryId: ``repo_id`` is empty or only whitespace.
+            MalformedRepositoryId: ``repo_id`` is not a catalog identifier.
+            UnknownRepository: ``repo_id`` is not in this service's catalog.
+        """
+        return self._indexes[validate_repo_id(repo_id, known=self._indexes)]
+
+    def ask(self, question: str, *, repo_id: str = MINI_REPO_ID) -> CodeAnswer:
         """Answer ``question`` from retrieved definitions or refuse.
 
         Raises:
+            BlankRepositoryId: ``repo_id`` is empty or only whitespace.
+            MalformedRepositoryId: ``repo_id`` is not a catalog identifier.
             UnknownRepository: ``repo_id`` is not in the configured catalog.
         """
-        try:
-            index = self._indexes[repo_id]
-        except KeyError as error:
-            raise UnknownRepository(repo_id) from error
+        index = self._index_for(repo_id)
 
         results = index.search(question, limit=MAX_CITATIONS)
         if not results:
@@ -81,16 +89,15 @@ class CodeAskService:
         ]
         return CodeAnswer(answer=answer, citations=citations)
 
-    def symbols(self, *, repo_id: str = "mini") -> list[CodeSymbol]:
+    def symbols(self, *, repo_id: str = MINI_REPO_ID) -> list[CodeSymbol]:
         """Return a stable source outline for one configured repository.
 
         Raises:
+            BlankRepositoryId: ``repo_id`` is empty or only whitespace.
+            MalformedRepositoryId: ``repo_id`` is not a catalog identifier.
             UnknownRepository: ``repo_id`` is not in the configured catalog.
         """
-        try:
-            index = self._indexes[repo_id]
-        except KeyError as error:
-            raise UnknownRepository(repo_id) from error
+        index = self._index_for(repo_id)
 
         return [
             CodeSymbol(

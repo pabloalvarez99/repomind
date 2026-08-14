@@ -2,7 +2,22 @@
 
 ## Unreleased
 
-- No runtime, API, or eval behavior changed; the additions below are hosting and documentation.
+### Fixed
+
+- `POST /v1/code/ask` accepts `production_rag`. The request schema validated `repo_id` against
+  `^[a-z0-9-]+$`, a slug shape that rejected an id the catalog itself publishes, so the JSON API
+  returned 422 for a repository the browser console answered happily. Validity is now one
+  function, `repomind.catalog.validate_repo_id`, whose allowlist is derived from
+  `catalog_roots()` — the ids callers may send cannot drift from the ids the service can serve.
+
+### Changed
+
+- `POST /v1/code/ask`, `GET /ask`, `GET /v1/code/symbols`, and the CLI share that function and
+  therefore agree on every id. Blank is 422, path-shaped is 400, well-formed-but-absent is 404;
+  the CLI exits 2 and names the known ids on stderr. Previously argparse kept its own `choices`
+  allowlist and the two HTTP GET routes had no shape check at all.
+- No other runtime, API, or eval behavior changed; the additions below are hosting and
+  documentation.
 - Hosted free path at <https://pax-repomind.vercel.app>: a root `main.py` re-exports
   `repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`
   and `fixtures/` so the closed catalog resolves inside the function. The hosted instance
