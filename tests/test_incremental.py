@@ -216,7 +216,7 @@ def test_the_service_catalog_reports_both_committed_fixtures() -> None:
     assert all(entry.indexer_version == INDEXER_VERSION for entry in entries.values())
     # Week-2 honesty: production_rag pin is catalog metadata, not a live clone.
     assert entries["production_rag"].source_sha == (
-        "bf6e36d1d4ca353c4f17f649cb721da51d74f6bb"
+        "3b54d85a9c0d3ba85bd0760058aafce76849d1f7"
     )
     assert entries["production_rag"].source_repo == "pabloalvarez99/production-rag"
     assert entries["mini"].source_sha is None

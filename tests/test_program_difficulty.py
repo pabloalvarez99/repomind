@@ -70,12 +70,12 @@ def test_difficulty_rejects_all_easy_stress_slice(tmp_path: Path) -> None:
 
 
 def test_production_rag_pin_is_current_and_noop_on_second_ingest() -> None:
-    """Dogfood pin records bf6e36d-or-newer and re-ingest is a no-op."""
+    """Dogfood pin records P1 v1.0.0 (3b54d85) and re-ingest is a no-op."""
     roots = catalog_roots(allow_environment=False)
     root = roots[PRODUCTION_RAG_REPO_ID]
     pin = root / ".repomind" / "source.json"
     text = pin.read_text(encoding="utf-8")
-    assert "bf6e36d" in text or "bf6e36d1d4ca353c4f17f649cb721da51d74f6bb" in text
+    assert "3b54d85a9c0d3ba85bd0760058aafce76849d1f7" in text
 
     ingestor = IncrementalIngestor(root)
     first = ingestor.ingest()

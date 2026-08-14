@@ -179,7 +179,7 @@ def test_catalog_lists_every_repository_with_its_content_address() -> None:
         assert entry["chunk_count"] > 0
     by_id = {entry["repo_id"]: entry for entry in entries}
     assert by_id["production_rag"]["source_sha"] == (
-        "bf6e36d1d4ca353c4f17f649cb721da51d74f6bb"
+        "3b54d85a9c0d3ba85bd0760058aafce76849d1f7"
     )
     assert by_id["mini"]["source_sha"] is None
 
