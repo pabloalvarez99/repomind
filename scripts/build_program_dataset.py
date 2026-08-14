@@ -18,9 +18,21 @@ def main() -> None:
         rows.append(kwargs)
 
     for item in [
-        ("easy-create-app", "Where is create_app defined?", "mini", "app/main.py", "create_app"),
+        (
+            "easy-create-app",
+            "Where is create_app defined?",
+            "mini",
+            "app/main.py",
+            "create_app",
+        ),
         ("easy-health", "Where is health defined?", "mini", "app/main.py", "health"),
-        ("easy-greet", "Where is greet defined?", "mini", "app/service.py", "GreetingService.greet"),
+        (
+            "easy-greet",
+            "Where is greet defined?",
+            "mini",
+            "app/service.py",
+            "GreetingService.greet",
+        ),
         (
             "easy-greeting-service",
             "Where is GreetingService defined?",
@@ -326,15 +338,30 @@ def main() -> None:
         )
 
     for item in [
-        ("json-service-name", "Where is service_name defined?", "config/settings.json", "service_name"),
+        (
+            "json-service-name",
+            "Where is service_name defined?",
+            "config/settings.json",
+            "service_name",
+        ),
         (
             "json-greeting-prefix",
             "Where is greeting_prefix defined?",
             "config/settings.json",
             "greeting_prefix",
         ),
-        ("json-feature-flags", "Where is feature_flags defined?", "config/settings.json", "feature_flags"),
-        ("json-max-citations", "Where is max_citations defined?", "config/settings.json", "max_citations"),
+        (
+            "json-feature-flags",
+            "Where is feature_flags defined?",
+            "config/settings.json",
+            "feature_flags",
+        ),
+        (
+            "json-max-citations",
+            "Where is max_citations defined?",
+            "config/settings.json",
+            "max_citations",
+        ),
         (
             "json-service-prose",
             "Which JSON field names the mini fixture service?",
