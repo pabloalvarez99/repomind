@@ -50,6 +50,10 @@ button:hover { filter: brightness(0.9); }
 .citations { padding-left: 1.4rem; }
 .citations li { margin-bottom: 1rem; padding-left: 0.4rem; }
 .location { color: var(--lime); }
+.citation-line { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.copy-location { min-height: 28px; border: 1px solid var(--line); border-radius: 8px; padding: 0 0.55rem; background: transparent; color: var(--muted); font: 700 0.68rem/1 ui-monospace, monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.copy-location:hover { border-color: var(--lime); color: var(--lime); filter: none; }
+.copy-location.copied { border-color: var(--lime); color: var(--lime); }
 pre { overflow-x: auto; margin: 0.65rem 0 0; border-left: 2px solid var(--line); padding: 0.75rem 1rem; color: #d2d5d3; background: #0d1010; white-space: pre-wrap; }
 .refusal-note { border-left: 2px solid var(--amber); padding-left: 1rem; color: var(--muted); }
 .request-id { margin: 1.5rem 0 0; color: var(--muted); font-size: 0.78rem; }
@@ -59,6 +63,7 @@ footer { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; padding: 2rem 0 0;
   .shell { padding-top: 3rem; }
   form { grid-template-columns: 1fr; }
   button { width: 100%; }
+  .copy-location { width: auto; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

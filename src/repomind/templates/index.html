@@ -6,6 +6,7 @@
     <meta name="description" content="Ask RepoMind's deterministic code catalogs and inspect path:line evidence.">
     <title>RepoMind · Code evidence, offline</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+    <script src="{{ url_for('static', path='/app.js') }}" defer></script>
   </head>
   <body>
     <main class="shell">
@@ -53,8 +54,13 @@
         <h3>Source evidence</h3>
         <ol class="citations">
           {% for citation in result.citations %}
+          {% set location = citation.path ~ ':' ~ citation.start_line ~ '-' ~ citation.end_line %}
           <li>
-            <code class="location">{{ citation.path }}:{{ citation.start_line }}-{{ citation.end_line }}</code>
+            <div class="citation-line">
+              <code class="location">{{ location }}</code>
+              <button type="button" class="copy-location" data-copy="{{ location }}"
+                      aria-label="Copy {{ location }}" aria-live="polite" hidden>copy</button>
+            </div>
             {% if citation.snippet %}<pre><code>{{ citation.snippet }}</code></pre>{% endif %}
           </li>
           {% endfor %}

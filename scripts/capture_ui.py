@@ -152,6 +152,11 @@ def capture_all() -> None:
 
     env = os.environ.copy()
     env.pop("REPOMIND_CATALOG_PRODUCTION_RAG", None)
+    # Screenshot this checkout, never whichever copy an editable install happens to
+    # point at; a stale package would silently produce evidence for other code.
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(ROOT / "src"), *([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])]
+    )
     ASSETS.mkdir(parents=True, exist_ok=True)
     server = subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "uvicorn", "repomind.main:app", "--host", HOST, "--port", str(PORT)],
