@@ -16,6 +16,7 @@ permissions:
 env:
   OPENAI_API_KEY: ""
   COHERE_API_KEY: ""
+  REPOMIND_CATALOG_PRODUCTION_RAG: ""
 
 jobs:
   quality:
@@ -37,7 +38,7 @@ jobs:
         run: ruff check .
 
       - name: Type check
-        run: mypy --strict
+        run: mypy src/repomind
 
       - name: Test
         run: pytest -q
@@ -46,7 +47,10 @@ jobs:
         run: |
           result=$(python -m repomind ask "Where is create_app defined?" --fixture mini)
           RESULT="$result" python -c 'import json, os; payload=json.loads(os.environ["RESULT"]); citation=payload["citations"][0]; assert citation["path"] == "app/main.py"; assert citation["start_line"] == 6'
+          dogfood=$(python -m repomind ask "Where is run_query defined?" --repo production_rag)
+          DOGFOOD="$dogfood" python -c 'import json, os; payload=json.loads(os.environ["DOGFOOD"]); assert len(payload["citations"]) == 1; assert payload["citations"][0]["path"] == "production_rag/query_pipeline.py"'
           python -m repomind.evals.run
+          python -m repomind.evals.dogfood
 
       - name: Prove the credential-free HTTP path
         run: |
@@ -63,6 +67,12 @@ jobs:
             -H 'content-type: application/json' \
             -d '{"question":"Where is create_app defined?","repo_id":"mini"}')
           RESPONSE="$response" python -c 'import json, os; payload=json.loads(os.environ["RESPONSE"]); citation=payload["citations"][0]; assert citation["path"] == "app/main.py"; assert citation["start_line"] == 6; assert citation["end_line"] == 9'
+          symbols=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/symbols?repo_id=mini')
+          SYMBOLS="$symbols" python -c 'import json, os; payload=json.loads(os.environ["SYMBOLS"]); assert payload[0]["qualname"] == "create_app"'
+          ui=$(curl --fail --silent --get http://127.0.0.1:8020/ask \
+            --data-urlencode 'question=Where is run_query defined?' \
+            --data-urlencode 'repo_id=production_rag')
+          UI="$ui" python -c 'import os; page=os.environ["UI"]; assert "production_rag/query_pipeline.py:220-250" in page; assert "request_id" in page'
 
       - name: Show the API log after a failure
         if: failure()

@@ -1,5 +1,9 @@
 """FastAPI application, operational endpoint, and code-question API."""
 
+import json
+import logging
+import time
+from collections.abc import Awaitable, Callable
 from importlib.resources import files
 from pathlib import Path
 from typing import Literal
@@ -10,12 +14,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from starlette.responses import Response
 
 from repomind import __version__
 from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol, UnknownRepository
 from repomind.catalog import REPOSITORY_IDS, catalog_roots, mini_root
 
 SERVICE_NAME = "repomind"
+LOGGER = logging.getLogger("repomind.http")
 
 
 class HealthResponse(BaseModel):
@@ -64,6 +70,31 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=_package_path("templates"))
     app.mount("/static", StaticFiles(directory=_package_path("static")), name="static")
 
+    @app.middleware("http")
+    async def request_context(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Attach a correlation id and emit one structured completion event."""
+        request_id = str(uuid4())
+        request.state.request_id = request_id
+        started = time.perf_counter()
+        response = await call_next(request)
+        response.headers["x-request-id"] = request_id
+        LOGGER.info(
+            json.dumps(
+                {
+                    "event": "http_request_complete",
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration_ms": round((time.perf_counter() - started) * 1_000, 2),
+                },
+                separators=(",", ":"),
+            )
+        )
+        return response
+
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def ask_console(request: Request) -> HTMLResponse:
         """Render the credential-free repository ask console."""
@@ -94,7 +125,7 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
                 "selected_repo": repo_id,
                 "question": question,
                 "result": result,
-                "request_id": str(uuid4()),
+                "request_id": request.state.request_id,
             },
         )
 

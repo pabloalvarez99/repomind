@@ -118,7 +118,9 @@ def test_console_renders_path_line_evidence_and_request_id() -> None:
 
     assert response.status_code == 200
     assert "production_rag/query_pipeline.py:220-250" in response.text
-    assert re.search(r"request_id\s+<code>[0-9a-f-]{36}</code>", response.text)
+    request_id = response.headers["x-request-id"]
+    assert re.fullmatch(r"[0-9a-f-]{36}", request_id)
+    assert f"request_id <code>{request_id}</code>" in response.text
     assert re.search(r">\s*cited\s*<", response.text)
 
 
