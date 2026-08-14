@@ -1,7 +1,9 @@
 # Code-question evaluation set
 
-`code_questions.jsonl` is RepoMind's committed, deterministic regression gate. It contains
-14 fixture-backed questions: 10 answerable retrieval cases and four cases that must refuse.
+`code_questions.jsonl` is RepoMind's committed mini regression gate. It contains 14
+fixture-backed questions: 10 answerable retrieval cases and four cases that must refuse.
+`dogfood_questions.jsonl` contains eight locate-and-cite cases over the frozen Production RAG
+snapshot, including one required refusal.
 
 ## Record schema
 
@@ -25,6 +27,7 @@ From an editable development install:
 
 ```bash
 python -m repomind.evals.run
+python -m repomind.evals.dogfood
 ```
 
 The command exits non-zero if any case fails and prints one JSON summary with `total`,
@@ -34,7 +37,7 @@ The command exits non-zero if any case fails and prints one JSON summary with `t
 
 ## Interpretation
 
-This set is a small regression test for the committed `mini` fixture. A perfect score does
-not establish retrieval quality, language coverage, or generalization to arbitrary
-repositories. Add cases when behavior changes; do not weaken an expectation merely to make
-the gate pass.
+These sets are small regression tests for committed fixtures. The dogfood score is a
+navigation/citation gate on a curated snapshot, not retrieval quality on arbitrary repos. A
+perfect score does not establish retrieval quality, language coverage, or generalization.
+Add cases when behavior changes; do not weaken an expectation merely to make the gate pass.
