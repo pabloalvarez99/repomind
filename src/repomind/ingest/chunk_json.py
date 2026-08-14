@@ -11,7 +11,12 @@ import json
 import re
 from pathlib import Path
 
-from repomind.ingest.chunk_python import CodeChunk, content_hash, normalize_source
+from repomind.ingest.chunk_python import (
+    ChunkKind,
+    CodeChunk,
+    content_hash,
+    normalize_source,
+)
 
 JSON_SUFFIXES: frozenset[str] = frozenset({".json"})
 
@@ -54,7 +59,7 @@ def chunk_json_source(source: str, *, path: str) -> tuple[CodeChunk, ...]:
         if not snippet.endswith("\n"):
             snippet = snippet + "\n"
         end = start + max(snippet.count("\n") - 1, 0)
-        kind = "field"
+        kind: ChunkKind = "field"
         qualname = key
         chunk_id = f"{path}::{qualname}"
         chunks.append(
