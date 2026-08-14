@@ -12,7 +12,7 @@ end to end without API keys, network calls, or billed providers.
 | --- | --- | --- |
 | M0 | Python package, FastAPI health endpoint, tests and CI | LIVE |
 | M1 | Repository walk and AST chunks | LIVE |
-| M2 | In-memory symbol and token index | PLANNED |
+| M2 | In-memory symbol and token index | LIVE |
 | M3 | Code Q&A with path:line citations | PLANNED |
 | M4 | JSON CLI | PLANNED |
 | M5 | Fixture evaluation harness | PLANNED |
@@ -47,6 +47,10 @@ repositories. Evaluation evidence will be added with M5.
 M1 uses gitwildmatch rules from the repository's root `.gitignore`, skips symlinks, and emits
 one chunk per Python class, function, async function, and method. A chunk id is
 `path::qualname`; its line range comes directly from Python's AST.
+
+M2 indexes those chunks in memory. Exact symbol matches outrank identifier-aware token
+overlap across qualified names, paths, and source; deterministic tie-breaking makes results
+reproducible. There is no embedding model and no network call in this index.
 
 ## License
 
