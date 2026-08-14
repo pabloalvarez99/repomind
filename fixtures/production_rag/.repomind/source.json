@@ -1,6 +1,6 @@
 {
   "upstream": "pabloalvarez99/production-rag",
-  "source_sha": "bf6e36d1d4ca353c4f17f649cb721da51d74f6bb",
+  "source_sha": "3b54d85a9c0d3ba85bd0760058aafce76849d1f7",
   "paths": ["src/production_rag/query_pipeline.py", "src/production_rag/graph/build.py", "src/production_rag/retrieval/rrf.py", "src/production_rag/retrieval/embeddings.py", "src/production_rag/generation/guardrails.py", "src/production_rag/api/routes/query.py"],
   "note": "Read-only committed snapshot of selected src/ files. Not a live clone of P1."
 }

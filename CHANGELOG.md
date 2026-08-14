@@ -14,12 +14,15 @@
 - Catalog UI table: `indexer_version`, `tree_hash`, `source_sha`, chunk counts.
 - Load artifact `docs/assets/load.json` (200 mini asks, p50/p95; lexical fixture honesty).
 - ADR 0005: packs, no live git, no zip upload.
-- `production_rag` pin recorded as P1 `bf6e36d1d4ca353c4f17f649cb721da51d74f6bb`.
+- `production_rag` pin recorded as P1 `3b54d85a9c0d3ba85bd0760058aafce76849d1f7`
+  (v1.0.0 main; selected `src/` blobs; supersedes season pin `bf6e36d`).
 
 ### Changed
 
 - Case study revised for the evaluation program and pack architecture.
 - Hosted still indexes only committed fixtures; `includeFiles: {src/**,fixtures/**}` stays.
+- v1.0 lock: dogfood snapshot refreshed to P1 `3b54d85` (query route gained filter/cache
+  helpers; symbol goldens still path+name based; `run_query` remains `244-277`).
 
 ## v0.3.0 — 2026-08-14
 
