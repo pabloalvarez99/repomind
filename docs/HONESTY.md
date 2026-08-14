@@ -7,8 +7,8 @@
 |---|--------------------------|---------|----------|----------|---------|
 | 1 | Host health version 1.0.0 | `GET https://pax-repomind.vercel.app/health` | `version":"1.0.0"` | `{"status":"ok","service":"repomind","version":"1.0.0"}` | **PASS** |
 | 2 | Catalog lists fixtures + pin fields | `GET /v1/catalog` | mini, mini_js, production_rag; `source_sha`, `indexer_version` | All three present; `indexer_version=3` | **PASS** |
-| 3 | Dogfood pin is current P1 (not stale bf6e36d) | pin file + catalog after refresh/deploy | `source_sha=3b54d85a9c0d3ba85bd0760058aafce76849d1f7` | Fixture + local catalog use `3b54d85…`; pre-deploy host still `bf6e36d` until deploy row | **PASS** (refresh) / host after deploy in row 3b |
-| 3b | Hosted catalog shows new pin after deploy | `GET /v1/catalog` post-deploy | production_rag `source_sha` = `3b54d85…` | *filled after deploy* | **PENDING→PASS** |
+| 3 | Dogfood pin is current P1 (not stale bf6e36d) | pin file + catalog after refresh/deploy | `source_sha=3b54d85a9c0d3ba85bd0760058aafce76849d1f7` | Fixture + local + hosted catalog all `3b54d85…` | **PASS** |
+| 3b | Hosted catalog shows new pin after deploy | `GET /v1/catalog` post-deploy | production_rag `source_sha` = `3b54d85…` | `source_sha=3b54d85a9c0d3ba85bd0760058aafce76849d1f7` · tree `d36881b6…` · chunks 63 | **PASS** |
 | 4 | POST ask production_rag path:line | `POST /v1/code/ask` `run_query` | citation `production_rag/query_pipeline.py:244-277` | 200 · `244-277` (local + pre-deploy host) | **PASS** |
 | 5 | History 200 from snapshot (no git) | `GET /v1/code/history?repo_id=mini&path=app/main.py&mode=log` | 200 + entry sha | 200 · sha `93afe12c…` · summary committed fixture history | **PASS** |
 | 6 | Refs 200 who-calls | `GET /v1/code/refs?repo_id=mini&symbol=create_app` | callers include boot @ app/main.py:19 | 200 · `boot` @ `app/main.py:19` | **PASS** |
@@ -79,11 +79,39 @@ No explanation required for >3× (none exceeded). Faster numbers are machine noi
 
 ## Counts
 
-- **PASS:** 19 (+ hosted pin after deploy)
+- **PASS:** 20 (all claim rows including hosted pin)
 - **FAIL:** 0
 - **STRIKE (as overclaim):** 4 PLANNED non-goals kept honest
-- **Blocked:** none for code path; deploy required for hosted pin row 3b
+- **Blocked:** none
+
+## Ship surface
+
+| Item | Value |
+|------|--------|
+| Branch | `a3/p4-v1-lock` → PR #7 merged |
+| main | `91fa395` |
+| CI main | run `31851045112` success |
+| Host | https://pax-repomind.vercel.app @1.0.0 |
+| Release | v1.0.0 (no retag; lock is honesty refresh) |
 
 ## Post-deploy host transcripts
 
-_Filled after `vercel --prod` to project `pax-repomind`._
+```
+GET /health
+{"status":"ok","service":"repomind","version":"1.0.0"}
+
+GET /v1/catalog production_rag
+source_sha=3b54d85a9c0d3ba85bd0760058aafce76849d1f7
+indexer_version=3
+tree_hash=d36881b65e5c00e74eec056b597f3119c51066473e99cd25dfa1a98d540acb25
+chunk_count=63
+
+POST /v1/code/ask {"question":"Where is run_query defined?","repo_id":"production_rag"}
+200 · production_rag/query_pipeline.py:244-277
+
+GET /v1/code/history?repo_id=mini&path=app/main.py&mode=log
+200 · entries[0].sha=93afe12c1e8baae2e5050fa13e028a5d5aeedc7b
+
+GET /v1/code/refs?repo_id=mini&symbol=create_app
+200 · callers[0]=boot @ app/main.py:19
+```
