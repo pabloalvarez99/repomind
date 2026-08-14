@@ -180,13 +180,22 @@ def create_app(
         )
         return response
 
+    def _console_context(**extra: object) -> dict[str, object]:
+        """Shared template context: closed catalog metadata always visible."""
+        context: dict[str, object] = {
+            "repo_ids": catalog_ids(),
+            "catalog": code_service.catalog(),
+        }
+        context.update(extra)
+        return context
+
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def ask_console(request: Request) -> HTMLResponse:
         """Render the credential-free repository ask console."""
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"repo_ids": catalog_ids()},
+            context=_console_context(),
         )
 
     @app.get("/ask", response_class=HTMLResponse, include_in_schema=False)
@@ -200,13 +209,12 @@ def create_app(
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={
-                "repo_ids": catalog_ids(),
-                "selected_repo": repo_id,
-                "question": question,
-                "result": result,
-                "request_id": request.state.request_id,
-            },
+            context=_console_context(
+                selected_repo=repo_id,
+                question=question,
+                result=result,
+                request_id=request.state.request_id,
+            ),
         )
 
     @app.get("/refs", response_class=HTMLResponse, include_in_schema=False)
@@ -220,13 +228,12 @@ def create_app(
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={
-                "repo_ids": catalog_ids(),
-                "selected_repo": repo_id,
-                "refs_symbol": symbol,
-                "refs": refs,
-                "request_id": request.state.request_id,
-            },
+            context=_console_context(
+                selected_repo=repo_id,
+                refs_symbol=symbol,
+                refs=refs,
+                request_id=request.state.request_id,
+            ),
         )
 
     @app.get("/health", response_model=HealthResponse, tags=["ops"])

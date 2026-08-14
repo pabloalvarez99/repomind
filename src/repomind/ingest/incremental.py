@@ -13,21 +13,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from repomind.ingest.chunk_javascript import JS_SUFFIXES, chunk_javascript_source
-from repomind.ingest.chunk_python import CodeChunk, chunk_python_source, normalize_source
+from repomind.ingest.chunk_python import CodeChunk, normalize_source
+from repomind.ingest.packs import chunk_source_for_path, indexed_suffixes
 from repomind.ingest.walk import walk_repository
 
-INDEXER_VERSION: Final = "2"
+INDEXER_VERSION: Final = "3"
 """Identity of the chunking rules.
 
 Bump this whenever chunk boundaries, ids, or content addresses change meaning. It
 is part of every cache key, so an ingestor built by an older indexer can never
-hand back chunks an upgraded one would not produce. Version 2 adds free-path
-JavaScript/TypeScript top-level definition chunks alongside Python AST chunks.
+hand back chunks an upgraded one would not produce. Version 2 added free-path
+JavaScript/TypeScript. Version 3 adds the language-pack registry and structural
+JSON field chunks (stdlib only; no network).
 """
 
 PYTHON_SUFFIX: Final = ".py"
-INDEXED_SUFFIXES: Final = frozenset({PYTHON_SUFFIX, *JS_SUFFIXES})
+INDEXED_SUFFIXES: Final = indexed_suffixes()
 
 
 def _blob_hash(data: bytes) -> str:
@@ -165,12 +166,9 @@ class IncrementalIngestor:
                 file_chunks = cached[1]
                 reused += 1
             else:
-                if suffix == PYTHON_SUFFIX:
-                    file_chunks = chunk_python_source(source, path=repository_file.path)
-                else:
-                    file_chunks = chunk_javascript_source(
-                        source, path=repository_file.path
-                    )
+                file_chunks = chunk_source_for_path(
+                    source, path=repository_file.path, suffix=suffix
+                )
                 parsed += 1
             fresh[repository_file.path] = (blob, file_chunks)
             chunks.extend(file_chunks)

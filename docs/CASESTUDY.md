@@ -1,8 +1,9 @@
-# Case study: RepoMind v0.3.0
+# Case study: RepoMind v1.0.0
 
 **In one line:** a repository Q&A service that answers with `path:start-end` citations or
-refuses outright, runs end to end with no API key and no network call, and is gated by two
-committed eval suites that report `judge: null` and `billed_usd: 0.0`.
+refuses outright, runs end to end with no API key and no network call, and is gated by a
+free-path **program** eval (n≥50) with mechanical difficulty predicates, language packs, and
+offline pack round-trips that report `judge: null` and `billed_usd: 0.0`.
 
 **Read time: two minutes. Setup required: none.** Four decisions are described below, each
 with the trade-off it bought. The last section states plainly what the eval scores do *not*
@@ -170,3 +171,32 @@ live HTTP and UI probes. No credential is required, committed, or read.
 
 The most useful thing in the repository is not the pass rate. It is that the refusal path is
 tested, screenshotted, and documented alongside the successes.
+
+## Decision 8 — evaluation as a program, not a scoreboard sticker
+
+v0.3 closed with 14 mini + 8 dogfood + 4 JS goldens. That is a regression gate. Staff
+engineers ask whether any slice is *all* exact-symbol rank-1 trivia. The v1 program set
+(`data/eval/program_questions.jsonl`, n=52) tags every row with a slice and runs
+`check_program_difficulty`: `symbol-easy` is capped at 30% of n; stress slices fail when they
+collapse to exact-symbol rank-1 locates; cross-file requires `mention_path != expected_path`;
+rename rows require a committed map. Perfect pass rate still means **fixture navigation** —
+`billed_usd: 0.0`, no model judge — not code-search SOTA.
+
+## Decision 9 — language packs without CI network
+
+Packs are an in-repo registry: `python-ast` (default), `js` (pure scanner; tree-sitter
+optional extra never required), `json` (stdlib top-level keys). INDEXER_VERSION is 3 so
+chunk-rule changes invalidate trees. Default CI never `pip install`s grammars. A third
+language that needed a download would violate the free-path contract.
+
+## Decision 10 — rename maps instead of live git; pack instead of upload
+
+Hosted history remains committed snapshots (ADR 0004). Rename awareness is
+`.repomind/renames.jsonl`: "where did create_app go?" cites the **new** path:line. Offline
+`repomind pack` / `unpack` ships fixtures + tree hashes for lab round-trips; the host still
+indexes only packaged fixtures via `includeFiles`. Raw paths and stranger zips stay rejected.
+
+## Load honesty
+
+`docs/assets/load.json` records 200 local mini asks with p50/p95. Caption: lexical fixture,
+single process — not GitHub-scale capacity planning.

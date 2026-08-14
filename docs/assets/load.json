@@ -1,0 +1,13 @@
+{
+  "n": 200,
+  "repo_id": "mini",
+  "answered": 175,
+  "refused": 25,
+  "p50_ms": 0.481,
+  "p95_ms": 0.745,
+  "mean_ms": 0.447,
+  "billed_usd": 0.0,
+  "provider": "deterministic-lexical",
+  "honesty": "lexical fixture, not GitHub-scale",
+  "hardware_note": "single local process; not capacity planning"
+}

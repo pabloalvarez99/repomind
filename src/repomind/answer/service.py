@@ -19,10 +19,19 @@ from repomind.catalog import MINI_REPO_ID, UnknownRepository, validate_repo_id
 from repomind.index import InMemoryCodeIndex, SearchResult
 from repomind.ingest import IncrementalIngestor, IngestStats, RepositorySnapshot
 from repomind.ingest.call_graph import CallSite, build_incoming_refs, incoming_for
+from repomind.ingest.renames import RenameRecord, load_renames
 
 REFUSAL: Final = "I could not find code evidence that answers this question."
 MAX_CITATIONS: Final = 3
 _SOURCE_META_REL: Final = Path(".repomind") / "source.json"
+_RENAME_MARKERS: Final = (
+    "where did",
+    "where has",
+    "moved to",
+    "renamed to",
+    "after the rename",
+    "after rename",
+)
 
 __all__ = ["MAX_CITATIONS", "REFUSAL", "CodeAskService", "UnknownRepository"]
 
@@ -88,6 +97,9 @@ class CodeAskService:
         self._source_meta = dict(source_meta or {})
         self._roots = dict(roots or {})
         self._refs = {repo_id: dict(table) for repo_id, table in (refs or {}).items()}
+        self._renames: dict[str, tuple[RenameRecord, ...]] = {
+            repo_id: load_renames(root) for repo_id, root in self._roots.items()
+        }
 
     @classmethod
     def from_roots(cls, roots: Mapping[str, Path]) -> CodeAskService:
@@ -167,12 +179,21 @@ class CodeAskService:
     def ask(self, question: str, *, repo_id: str = MINI_REPO_ID) -> CodeAnswer:
         """Answer ``question`` from retrieved definitions or refuse.
 
+        Rename-aware history: when the question asks where a symbol went after a
+        rename, answer from the committed ``.repomind/renames.jsonl`` map and
+        cite the **new** path:line from the live index.
+
         Raises:
             BlankRepositoryId: ``repo_id`` is empty or only whitespace.
             MalformedRepositoryId: ``repo_id`` is not a catalog identifier.
             UnknownRepository: ``repo_id`` is not in the configured catalog.
         """
-        index = self._index_for(repo_id)
+        validated = validate_repo_id(repo_id, known=self._indexes)
+        rename_answer = self._answer_rename(question, repo_id=validated)
+        if rename_answer is not None:
+            return rename_answer
+
+        index = self._indexes[validated]
 
         results = index.search(question, limit=MAX_CITATIONS)
         if not results:
@@ -191,6 +212,72 @@ class CodeAskService:
             for result in results
         ]
         return CodeAnswer(answer=answer, citations=citations)
+
+    def _answer_rename(self, question: str, *, repo_id: str) -> CodeAnswer | None:
+        """Resolve rename questions against the committed rename map."""
+        lowered = question.casefold()
+        if not any(marker in lowered for marker in _RENAME_MARKERS):
+            return None
+        records = self._renames.get(repo_id, ())
+        if not records:
+            return None
+        index = self._indexes[repo_id]
+        # Prefer an explicit symbol that appears in both the question and a record.
+        for record in records:
+            if record.symbol and record.symbol.casefold() in lowered:
+                located = index.locate_symbol(record.symbol)
+                match = next((chunk for chunk in located if chunk.path == record.new_path), None)
+                if match is None and located:
+                    match = located[0]
+                if match is None:
+                    continue
+                answer = (
+                    f"[1] `{record.symbol}` moved from `{record.old_path}` to "
+                    f"`{match.path}` at lines {match.start_line}-{match.end_line}."
+                )
+                return CodeAnswer(
+                    answer=answer,
+                    citations=[
+                        CodeCitation(
+                            path=match.path,
+                            start_line=match.start_line,
+                            end_line=match.end_line,
+                            snippet=" ".join(match.text.split())[:240],
+                        )
+                    ],
+                )
+        # Path-only: "where did app/application.py go"
+        for record in records:
+            if record.old_path.casefold() in lowered.replace("\\", "/"):
+                located = (
+                    index.locate_symbol(record.symbol) if record.symbol else ()
+                )
+                match = next((chunk for chunk in located if chunk.path == record.new_path), None)
+                if match is None:
+                    # Cite any chunk on the new path.
+                    for chunk in index.chunks:
+                        if chunk.path == record.new_path:
+                            match = chunk
+                            break
+                if match is None:
+                    continue
+                label = record.symbol or record.old_path
+                answer = (
+                    f"[1] `{label}` moved from `{record.old_path}` to "
+                    f"`{match.path}` at lines {match.start_line}-{match.end_line}."
+                )
+                return CodeAnswer(
+                    answer=answer,
+                    citations=[
+                        CodeCitation(
+                            path=match.path,
+                            start_line=match.start_line,
+                            end_line=match.end_line,
+                            snippet=" ".join(match.text.split())[:240],
+                        )
+                    ],
+                )
+        return None
 
     def symbols(self, *, repo_id: str = MINI_REPO_ID) -> list[CodeSymbol]:
         """Return a stable source outline for one configured repository.

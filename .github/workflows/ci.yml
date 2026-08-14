@@ -84,7 +84,7 @@ jobs:
           check_repo_id '' 422
           check_repo_id '   ' 422
           catalog=$(curl --fail --silent http://127.0.0.1:8020/v1/catalog)
-          CATALOG="$catalog" python -c 'import json, os; entries=json.loads(os.environ["CATALOG"]); assert [e["repo_id"] for e in entries] == ["mini", "mini_js", "production_rag"]; assert all(len(e["tree_hash"]) == 64 and e["chunk_count"] > 0 for e in entries); by={e["repo_id"]:e for e in entries}; assert by["production_rag"]["source_sha"] == "d43f81265842c95130a4b064cfca8a220dfd5431"'
+          CATALOG="$catalog" python -c 'import json, os; entries=json.loads(os.environ["CATALOG"]); assert [e["repo_id"] for e in entries] == ["mini", "mini_js", "production_rag"]; assert all(len(e["tree_hash"]) == 64 and e["chunk_count"] > 0 for e in entries); by={e["repo_id"]:e for e in entries}; assert by["production_rag"]["source_sha"] == "bf6e36d1d4ca353c4f17f649cb721da51d74f6bb"'
           symbols=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/symbols?repo_id=mini')
           SYMBOLS="$symbols" python -c 'import json, os; payload=json.loads(os.environ["SYMBOLS"]); assert payload[0]["qualname"] == "create_app"'
           js=$(curl --fail --silent http://127.0.0.1:8020/v1/code/ask \

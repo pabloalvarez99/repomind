@@ -1,0 +1,9 @@
+{
+  "service_name": "mini-service",
+  "greeting_prefix": "Hello",
+  "feature_flags": {
+    "history": true,
+    "refs": true
+  },
+  "max_citations": 3
+}

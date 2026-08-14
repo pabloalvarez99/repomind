@@ -7,6 +7,7 @@ from repomind.ingest.chunk_javascript import (
     chunk_javascript_source,
     try_chunk_with_treesitter,
 )
+from repomind.ingest.chunk_json import JSON_SUFFIXES, chunk_json_file, chunk_json_source
 from repomind.ingest.chunk_python import (
     CodeChunk,
     chunk_python_file,
@@ -25,27 +26,34 @@ from repomind.ingest.incremental import (
     RepositorySnapshot,
     tree_hash,
 )
+from repomind.ingest.packs import PACKS, LanguagePack, pack_for_suffix
 from repomind.ingest.walk import RepositoryFile, walk_repository
 
 __all__ = [
     "INDEXED_SUFFIXES",
     "INDEXER_VERSION",
+    "JSON_SUFFIXES",
     "JS_SUFFIXES",
     "CodeChunk",
     "FileDigest",
     "IncrementalIngestor",
     "IngestOutcome",
     "IngestStats",
+    "LanguagePack",
+    "PACKS",
     "RepositoryFile",
     "RepositorySnapshot",
     "chunk_javascript_file",
     "chunk_javascript_repository",
     "chunk_javascript_source",
+    "chunk_json_file",
+    "chunk_json_source",
     "chunk_python_file",
     "chunk_python_source",
     "chunk_repository",
     "content_hash",
     "normalize_source",
+    "pack_for_suffix",
     "tree_hash",
     "try_chunk_with_treesitter",
     "walk_repository",

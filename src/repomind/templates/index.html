@@ -16,6 +16,33 @@
         <p class="lede">AST-aware answers over a closed, read-only catalog. No model, no embeddings, no bill.</p>
       </header>
 
+      <section class="panel catalog-panel" aria-labelledby="catalog-heading">
+        <h2 id="catalog-heading">Catalog</h2>
+        <p class="help">Closed fixtures only. Hosted indexes never accept raw paths or uploads.</p>
+        <table class="catalog-table">
+          <thead>
+            <tr>
+              <th scope="col">repo_id</th>
+              <th scope="col">indexer_version</th>
+              <th scope="col">tree_hash</th>
+              <th scope="col">source_sha</th>
+              <th scope="col">chunks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in catalog %}
+            <tr>
+              <td><code>{{ entry.repo_id }}</code></td>
+              <td><code>{{ entry.indexer_version }}</code></td>
+              <td><code title="{{ entry.tree_hash }}">{{ entry.tree_hash[:12] }}…</code></td>
+              <td>{% if entry.source_sha %}<code title="{{ entry.source_sha }}">{{ entry.source_sha[:12] }}…</code>{% else %}—{% endif %}</td>
+              <td>{{ entry.chunk_count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
       <section class="panel" aria-labelledby="ask-heading">
         <h2 id="ask-heading">Ask a repository</h2>
         <form action="/ask" method="get">

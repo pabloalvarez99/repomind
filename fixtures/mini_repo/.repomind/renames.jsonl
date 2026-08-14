@@ -1,0 +1,2 @@
+{"old_path":"app/application.py","new_path":"app/main.py","symbol":"create_app"}
+{"old_path":"app/greeter.py","new_path":"app/service.py","symbol":"GreetingService"}

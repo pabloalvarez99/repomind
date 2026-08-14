@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.0 — 2026-08-14
+
+### Added
+
+- Free-path program eval (`data/eval/program_questions.jsonl`, n≥50) with mechanical difficulty
+  predicates (`symbol-easy` cap, cross-file mention_path, rename/history, unanswerable, js/json/
+  dogfood slices). Integrity fails if a stress slice is all exact-symbol rank-1 trivia.
+- Language pack registry: `python-ast`, `js`, structural `json` (stdlib only). Default CI never
+  downloads tree-sitter grammars. INDEXER_VERSION **3**.
+- Rename-aware history via committed `.repomind/renames.jsonl` (no live git on host).
+- Offline `repomind pack` / `unpack` round-trip (`billed_usd: 0`).
+- Catalog UI table: `indexer_version`, `tree_hash`, `source_sha`, chunk counts.
+- Load artifact `docs/assets/load.json` (200 mini asks, p50/p95; lexical fixture honesty).
+- ADR 0005: packs, no live git, no zip upload.
+- `production_rag` pin recorded as P1 `bf6e36d1d4ca353c4f17f649cb721da51d74f6bb`.
+
+### Changed
+
+- Case study revised for the evaluation program and pack architecture.
+- Hosted still indexes only committed fixtures; `includeFiles: {src/**,fixtures/**}` stays.
+
 ## v0.3.0 — 2026-08-14
 
 ### Fixed
