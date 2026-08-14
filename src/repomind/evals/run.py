@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from repomind.answer import CodeAskService
-from repomind.main import fixture_root
+from repomind.catalog import MINI_REPO_ID, catalog_roots
 
 DEFAULT_DATASET: Final = "code_questions.jsonl"
 
@@ -66,14 +66,14 @@ def load_cases(path: Path) -> tuple[EvaluationCase, ...]:
     return tuple(cases)
 
 
-def evaluate(path: Path | None = None) -> dict[str, Any]:
-    """Evaluate exact fixture retrieval and refusal expectations."""
+def evaluate(path: Path | None = None, *, repo_id: str = MINI_REPO_ID) -> dict[str, Any]:
+    """Evaluate exact retrieval and refusal expectations on committed bytes."""
     cases = load_cases(default_dataset_path() if path is None else path)
-    service = CodeAskService.from_roots({"mini": fixture_root()})
+    service = CodeAskService.from_roots(catalog_roots(allow_environment=False))
     failures: list[str] = []
 
     for case in cases:
-        response = service.ask(case.question)
+        response = service.ask(case.question, repo_id=repo_id)
         refused = not response.citations
         passed = refused == case.expect_refusal
         if case.expected_path is not None:
@@ -92,6 +92,7 @@ def evaluate(path: Path | None = None) -> dict[str, Any]:
         "failed": len(failures),
         "pass_rate": passed_count / len(cases),
         "failed_ids": failures,
+        "repo_id": repo_id,
         "provider": "deterministic-lexical",
         "judge": None,
         "billed_usd": 0.0,

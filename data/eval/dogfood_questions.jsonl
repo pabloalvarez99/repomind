@@ -1,0 +1,8 @@
+{"id":"dogfood-run-query","question":"Where is run_query defined?","expected_path":"production_rag/query_pipeline.py","expected_symbol":"run_query"}
+{"id":"dogfood-query-graph","question":"Where is build_query_graph defined?","expected_path":"production_rag/graph/build.py","expected_symbol":"build_query_graph"}
+{"id":"dogfood-rrf","question":"Where is reciprocal_rank_fusion defined?","expected_path":"production_rag/retrieval/rrf.py","expected_symbol":"reciprocal_rank_fusion"}
+{"id":"dogfood-fake-provider","question":"Where is FakeEmbeddingProvider defined?","expected_path":"production_rag/retrieval/embeddings.py","expected_symbol":"FakeEmbeddingProvider"}
+{"id":"dogfood-citation-guardrail","question":"Where is check_evidence defined?","expected_path":"production_rag/generation/guardrails.py","expected_symbol":"check_evidence"}
+{"id":"dogfood-query-route","question":"Where is the API query route function defined?","expected_path":"production_rag/api/routes/query.py","expected_symbol":"query"}
+{"id":"dogfood-prose-rrf","question":"Which function fuses ranked result lists with reciprocal rank fusion?","expected_path":"production_rag/retrieval/rrf.py","expected_symbol":"reciprocal_rank_fusion"}
+{"id":"dogfood-refuse-unknown","question":"Where is QuantumDatabaseRouter defined?","expect_refusal":true}

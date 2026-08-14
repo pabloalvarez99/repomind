@@ -1,7 +1,5 @@
 """FastAPI application, operational endpoint, and code-question API."""
 
-from importlib.resources import files
-from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
@@ -9,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from repomind import __version__
 from repomind.answer import CodeAnswer, CodeAskService, UnknownRepository
+from repomind.catalog import catalog_roots, mini_root
 
 SERVICE_NAME = "repomind"
 
@@ -38,19 +37,13 @@ class CodeAskRequest(BaseModel):
         return value
 
 
-def fixture_root() -> Path:
-    """Return the packaged mini repository path."""
-    packaged = Path(str(files("repomind").joinpath("fixtures", "mini_repo")))
-    if packaged.is_dir():
-        return packaged
-    return Path(__file__).resolve().parents[2] / "fixtures" / "mini_repo"
+fixture_root = mini_root
+"""Backward-compatible name for the original mini fixture root."""
 
 
 def create_app(service: CodeAskService | None = None) -> FastAPI:
     """Build an isolated API application over an injectable code service."""
-    code_service = (
-        CodeAskService.from_roots({"mini": fixture_root()}) if service is None else service
-    )
+    code_service = CodeAskService.from_roots(catalog_roots()) if service is None else service
     app = FastAPI(
         title="RepoMind",
         version=__version__,
