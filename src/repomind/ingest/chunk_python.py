@@ -12,7 +12,19 @@ from typing import Literal
 
 from repomind.ingest.walk import walk_repository
 
+# Shared by Python AST and free-path JS/TS scanners. Keep the set small so the
+# answer renderer and index stay language-agnostic.
 ChunkKind = Literal["class", "function", "async_function"]
+
+__all__ = [
+    "ChunkKind",
+    "CodeChunk",
+    "chunk_python_file",
+    "chunk_python_source",
+    "chunk_repository",
+    "content_hash",
+    "normalize_source",
+]
 
 
 def content_hash(*, kind: str, qualname: str, text: str) -> str:

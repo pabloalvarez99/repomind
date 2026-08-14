@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "repomind"
-version = "0.1.0"
+version = "0.2.0"
 description = "Offline codebase Q&A with AST-aware chunks and path:line citations."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -30,6 +30,13 @@ dev = [
 docs = [
     "playwright>=1.48",
 ]
+# Optional grammar path. CI never installs this; free-path JS uses the pure
+# scanner in repomind.ingest.chunk_javascript. Tests that need the grammar use
+# pytest.importorskip / the treesitter marker and are skipped by default.
+treesitter = [
+    "tree-sitter>=0.23",
+    "tree-sitter-javascript>=0.23",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/repomind"]
@@ -37,11 +44,15 @@ packages = ["src/repomind"]
 [tool.hatch.build.targets.wheel.force-include]
 "fixtures/mini_repo" = "repomind/fixtures/mini_repo"
 "fixtures/production_rag" = "repomind/fixtures/production_rag"
+"fixtures/mini_js" = "repomind/fixtures/mini_js"
 "data/eval" = "repomind/data/eval"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]
+markers = [
+    "treesitter: requires the optional [treesitter] extra (skipped in default CI)",
+]
 
 [tool.ruff]
 line-length = 100

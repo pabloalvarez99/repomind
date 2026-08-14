@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 — 2026-08-14
 
 ### Fixed
 
@@ -14,7 +14,7 @@
 
 - Content-addressed ingest. Every chunk carries a `content_hash` over its kind, qualified name,
   and source text; every visible file a blob hash; every repository a `tree_hash` folded from the
-  sorted `(path, blob_hash)` pairs and the `INDEXER_VERSION` that read them. Python sources are
+  sorted `(path, blob_hash)` pairs and the `INDEXER_VERSION` that read them. Sources are
   hashed after CRLF normalization so one commit advertises one index on every platform.
 - Incremental re-ingest. `IncrementalIngestor` reuses chunks whose bytes are unchanged, so
   re-ingesting an unchanged repository parses zero files and an edit costs one parse rather than
@@ -26,15 +26,20 @@
   ingest actually did.
 - ADR 0003 records why the way in is a catalog id, why the tree is hashed, and why the hosted
   instance will not accept a stranger's zip.
+- Free-path JavaScript/TypeScript catalog id `mini_js` with a pure scanner (no tree-sitter in
+  default CI). Optional extra `[treesitter]` is documented and skipped unless installed.
+  Golden: `Where is foo defined?` → `src/foo.js` path:line. Plumbing on a fixture, not SOTA.
+- Optional `GET /v1/code/history` for read-only `git log` / `git blame` on a catalog-relative
+  path. Missing git or a non-git fixture root returns `503` with
+  `detail=capability_missing`. No remotes, no upload, no arbitrary paths.
 
 ### Changed
 
-- `POST /v1/code/ask`, `GET /ask`, `GET /v1/code/symbols`, `GET /v1/catalog`, and the CLI share
-  the one validity function and therefore agree on every id. Blank is 422, path-shaped is 400, well-formed-but-absent is 404;
-  the CLI exits 2 and names the known ids on stderr. Previously argparse kept its own `choices`
-  allowlist and the two HTTP GET routes had no shape check at all.
-- No other runtime, API, or eval behavior changed; the additions below are hosting and
-  documentation.
+- `POST /v1/code/ask`, `GET /ask`, `GET /v1/code/symbols`, `GET /v1/catalog`,
+  `GET /v1/code/history`, and the CLI share the one validity function and therefore agree on
+  every id. Blank is 422, path-shaped is 400, well-formed-but-absent is 404; the CLI exits 2 and
+  names the known ids on stderr.
+- `INDEXER_VERSION` is now `2` (JS/TS top-level definitions enter the index).
 - Hosted free path at <https://pax-repomind.vercel.app>: a root `main.py` re-exports
   `repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`
   and `fixtures/` so the closed catalog resolves inside the function. The hosted instance

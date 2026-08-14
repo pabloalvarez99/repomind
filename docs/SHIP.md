@@ -1,4 +1,4 @@
-# SHIP checklist — v0.1.0
+# SHIP checklist — v0.2.0
 
 ## Product
 
@@ -7,15 +7,20 @@
 - [x] Hosted free path, no clone and no key: <https://pax-repomind.vercel.app>
 - [x] Paid path separated: none exists or is required.
 - [x] LIVE / DECLARED / PLANNED table in README.
+- [x] Former 422 id `production_rag` works on `POST /v1/code/ask` (catalog contract).
+- [x] Content-addressed incremental index + `GET /v1/catalog`.
+- [x] Free-path JS fixture `mini_js` with path:line golden.
+- [x] Optional git history with explicit `capability_missing`.
 
 ## Engineering
 
 - [x] `src/` package, `pyproject.toml`, Python 3.12+.
 - [x] Offline unit and HTTP integration tests.
 - [x] Ruff and strict mypy.
-- [x] CI on push and pull request with empty provider keys.
-- [x] ADRs for the catalog/sandbox and lexical baseline.
+- [x] CI on push and pull request with empty provider keys; no tree-sitter download in default CI.
+- [x] ADRs for the catalog/sandbox, lexical baseline, and content-addressed index.
 - [x] JSON HTTP completion logs with request correlation id.
+- [x] One `validate_repo_id` shared by POST, GET console, symbols, catalog, history, CLI.
 
 ## Trust
 
@@ -23,6 +28,7 @@
 - [x] `SECURITY.md` and `CONTRIBUTING.md`.
 - [x] MIT license.
 - [x] Eval metrics disclose deterministic provider, null judge, and $0 bill.
+- [x] Never accept raw filesystem paths; hosted indexes only committed fixtures.
 
 ## Polish
 
@@ -39,9 +45,13 @@
 | --- | --- | --- |
 | Mini eval, 14/14 committed cases | `python -m repomind.evals.run` | LIVE |
 | Production RAG dogfood, 8/8 snapshot cases | `python -m repomind.evals.dogfood` | LIVE |
+| JS fixture golden, foo → path:line | `data/eval/js_questions.jsonl` | LIVE |
 | CLI stdout, exactly one JSON object | `python -m repomind ask ...` | LIVE |
 | Container, Python 3.12 slim, unprivileged, port 8020 | `Dockerfile` | LIVE |
 | Hosted console and API, same fixtures, no key | <https://pax-repomind.vercel.app> | LIVE |
+| Hosted POST `production_rag` (former 422) | `POST /v1/code/ask` | LIVE |
+| Catalog with tree hashes | `GET /v1/catalog` | LIVE |
+| History capability_missing on plain fixtures | `GET /v1/code/history` | LIVE |
 | Case study with decisions and eval limits | [`docs/CASESTUDY.md`](CASESTUDY.md) | LIVE |
 | UI capture script, asserts outcome before writing | [`scripts/capture_ui.py`](../scripts/capture_ui.py) | LIVE |
 | Console capture, mini exact-symbol hit with `path:start-end` | `docs/assets/ui-mini-hit.png` | LIVE |

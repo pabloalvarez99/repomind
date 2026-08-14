@@ -1,0 +1,4 @@
+{"id":"locate-foo","question":"Where is foo defined?","expected_path":"src/foo.js","expected_symbol":"foo"}
+{"id":"locate-bar","question":"Where is bar defined?","expected_path":"src/foo.js","expected_symbol":"bar"}
+{"id":"locate-counter","question":"Where is Counter defined?","expected_path":"src/util.ts","expected_symbol":"Counter"}
+{"id":"refuse-unknown-js","question":"Where is QuantumDatabaseRouter defined?","expect_refusal":true}

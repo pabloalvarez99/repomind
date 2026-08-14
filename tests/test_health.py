@@ -2,6 +2,7 @@
 
 from fastapi.testclient import TestClient
 
+from repomind import __version__
 from repomind.main import create_app
 
 
@@ -14,5 +15,5 @@ def test_health_is_available_without_credentials() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "repomind",
-        "version": "0.1.0",
+        "version": __version__,
     }

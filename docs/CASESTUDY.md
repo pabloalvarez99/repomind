@@ -1,4 +1,4 @@
-# Case study: RepoMind v0.1.0
+# Case study: RepoMind v0.2.0
 
 **In one line:** a repository Q&A service that answers with `path:start-end` citations or
 refuses outright, runs end to end with no API key and no network call, and is gated by two
@@ -61,10 +61,15 @@ underneath one that is not.
 ## Decision 2 — `repo_id` against a closed catalog, not caller-supplied paths
 
 The obvious API is `{"path": "/some/repo"}`. RepoMind refuses to offer it. Requests name a
-repository id (`mini`, `production_rag`); the server maps ids to roots in
+repository id (`mini`, `production_rag`, `mini_js`); the server maps ids to roots in
 [`src/repomind/catalog.py`](../src/repomind/catalog.py). A request value is never joined onto a
 filesystem path, so there is no path-traversal surface to sanitize and no sanitizer to get
 wrong.
+
+One validity function — `validate_repo_id` — backs every surface. The allowlist is *derived*
+from `catalog_roots()`, so an id the catalog publishes cannot 422 on POST while GET accepts
+it. That exact bug existed for `production_rag` (underscore rejected by a slug regex); v0.2.0
+closes it. A blank id is 422, a path-shaped id is 400, a well-formed stranger is 404.
 
 The catalog is closed in both directions. The environment may repoint the root behind an
 already-known id (`REPOMIND_CATALOG_PRODUCTION_RAG`), but it cannot add an id, and evaluation
@@ -72,11 +77,12 @@ callers disable the override entirely so CI always measures committed bytes. Bey
 walker reads source as text, skips symlinks and ignored or cached paths, and never imports the
 target — it will not execute fixture code to answer a question about it.
 
-**What it costs and what it is not:** you cannot point v0.1.0 at an arbitrary local repository
-through the HTTP API, which is a real product limitation. And this is not a complete hostile
-repository sandbox — it removes code execution and caller-selected traversal from the v0.1.0
-path, which is a smaller claim than "safe against a malicious repository". See
-[ADR 0001](adr/0001-closed-catalog-parse-only.md).
+**What it costs and what it is not:** you cannot point the hosted free path at an arbitrary
+local repository through the HTTP API, which is a real product limitation. And this is not a
+complete hostile repository sandbox — it removes code execution and caller-selected traversal
+from the free path, which is a smaller claim than "safe against a malicious repository". See
+[ADR 0001](adr/0001-closed-catalog-parse-only.md) and
+[ADR 0003](adr/0003-content-addressed-catalog-index.md).
 
 ## Decision 3 — a committed snapshot, not a sibling checkout in CI
 
@@ -96,7 +102,18 @@ citation into the snapshot is evidence about the snapshot, not a live claim abou
 repository's current state. That trade — reproducibility over freshness — is the right one for
 a gate whose job is catching regressions in *this* repository.
 
-## Decision 4 — what 14/14 and 8/8 actually prove
+## Decision 4 — content-addressed index, one more language, optional history
+
+v0.2.0 gives every chunk a content hash and every repository a tree hash, so re-ingesting an
+unchanged fixture is a measured no-op and `GET /v1/catalog` can publish what this instance
+actually serves. Python still uses the stdlib AST. JavaScript/TypeScript is free-path plumbing
+on a tiny committed fixture (`mini_js`): `Where is foo defined?` → `src/foo.js` with a
+path:line citation. That is multi-language wiring, not SOTA. Optional tree-sitter stays behind
+an extra so default CI never needs network for a grammar. Optional `GET /v1/code/history`
+runs read-only `git log`/`blame` on a catalog-relative path only; missing git or a non-git
+fixture root is `503 capability_missing`, never a silent empty list and never a remote.
+
+## Decision 5 — what 14/14 and 8/8 actually prove
 
 Both suites pass on committed bytes. Both scorecards report `provider:
 deterministic-lexical`, `judge: null`, and `billed_usd: 0.0`. That last line is the point: no

@@ -51,3 +51,26 @@ class RepositoryMetadata(BaseModel):
     chunk_count: int = Field(ge=0)
     tree_hash: str = Field(min_length=1)
     indexer_version: str = Field(min_length=1)
+
+
+class HistoryEntryModel(BaseModel):
+    """One git log line or blame attribution on a catalog path."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sha: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    author: str | None = None
+    committed_at: str | None = None
+    line: int | None = Field(default=None, ge=1)
+
+
+class HistoryResponse(BaseModel):
+    """Read-only git history for one path inside a catalog repository."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    repo_id: str = Field(min_length=1)
+    path: str = Field(min_length=1)
+    mode: str = Field(min_length=1)
+    entries: list[HistoryEntryModel]

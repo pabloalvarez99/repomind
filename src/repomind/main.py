@@ -17,7 +17,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.responses import Response
 
 from repomind import __version__
-from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol, RepositoryMetadata
+from repomind.answer import (
+    CodeAnswer,
+    CodeAskService,
+    CodeSymbol,
+    HistoryEntryModel,
+    HistoryResponse,
+    RepositoryMetadata,
+)
 from repomind.catalog import (
     MINI_REPO_ID,
     BlankRepositoryId,
@@ -26,6 +33,14 @@ from repomind.catalog import (
     catalog_ids,
     catalog_roots,
     mini_root,
+)
+from repomind.history import (
+    DEFAULT_HISTORY_LIMIT,
+    MAX_HISTORY_LIMIT,
+    CapabilityMissing,
+    GitHistoryService,
+    HistoryMode,
+    UnsafeHistoryPath,
 )
 
 SERVICE_NAME = "repomind"
@@ -71,9 +86,17 @@ def _package_path(name: str) -> Path:
     return Path(str(files("repomind").joinpath(name)))
 
 
-def create_app(service: CodeAskService | None = None) -> FastAPI:
+def create_app(
+    service: CodeAskService | None = None,
+    *,
+    history_service: GitHistoryService | None = None,
+) -> FastAPI:
     """Build an isolated API application over an injectable code service."""
-    code_service = CodeAskService.from_roots(catalog_roots()) if service is None else service
+    roots = catalog_roots()
+    code_service = CodeAskService.from_roots(roots) if service is None else service
+    git_history = (
+        GitHistoryService(roots) if history_service is None else history_service
+    )
     app = FastAPI(
         title="RepoMind",
         version=__version__,
@@ -103,6 +126,26 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
     async def _unknown_repo_id(request: Request, error: Exception) -> JSONResponse:
         """Answer a well-formed id that names nothing in the closed catalog."""
         return _repo_id_error(404, "repository id is not configured")
+
+    @app.exception_handler(CapabilityMissing)
+    async def _capability_missing(request: Request, error: Exception) -> JSONResponse:
+        """Optional surfaces degrade with an explicit missing-capability payload."""
+        missing = error if isinstance(error, CapabilityMissing) else CapabilityMissing(
+            "unknown", "unknown"
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "capability_missing",
+                "capability": missing.capability,
+                "reason": missing.reason,
+            },
+        )
+
+    @app.exception_handler(UnsafeHistoryPath)
+    async def _unsafe_history_path(request: Request, error: Exception) -> JSONResponse:
+        """History paths are catalog-relative only; escape attempts are 400."""
+        return _repo_id_error(400, "path is not a catalog-relative file")
 
     @app.middleware("http")
     async def request_context(
@@ -182,6 +225,38 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
     def code_symbols(repo_id: str = MINI_REPO_ID) -> list[CodeSymbol]:
         """Return a deterministic AST outline for a catalog repository."""
         return code_service.symbols(repo_id=repo_id)
+
+    @app.get("/v1/code/history", response_model=HistoryResponse, tags=["code"])
+    def code_history(
+        repo_id: str = MINI_REPO_ID,
+        path: str = Query(min_length=1, max_length=512),
+        mode: HistoryMode = "log",
+        limit: int = Query(default=DEFAULT_HISTORY_LIMIT, ge=1, le=MAX_HISTORY_LIMIT),
+    ) -> HistoryResponse:
+        """Return read-only git log or blame for one path inside a catalog repo.
+
+        Requires a local ``git`` binary and a catalog root that is itself a git
+        work tree. Missing either is ``503 capability_missing``, never a silent
+        empty list. There is no remote, clone, or upload surface.
+        """
+        result = git_history.history(
+            repo_id=repo_id, path=path, mode=mode, limit=limit
+        )
+        return HistoryResponse(
+            repo_id=result.repo_id,
+            path=result.path,
+            mode=result.mode,
+            entries=[
+                HistoryEntryModel(
+                    sha=entry.sha,
+                    summary=entry.summary,
+                    author=entry.author,
+                    committed_at=entry.committed_at,
+                    line=entry.line,
+                )
+                for entry in result.entries
+            ],
+        )
 
     return app
 

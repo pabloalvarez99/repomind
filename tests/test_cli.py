@@ -67,7 +67,7 @@ def test_cli_rejects_a_bad_repository_id_without_touching_the_filesystem(repo_id
 
     assert code == EXIT_BAD_REPO_ID
     assert stdout.getvalue() == ""
-    assert "Known ids: mini, production_rag" in stderr.getvalue()
+    assert "Known ids: mini, production_rag, mini_js" in stderr.getvalue()
 
 
 def test_python_module_command_works_outside_the_checkout(tmp_path: Path) -> None:

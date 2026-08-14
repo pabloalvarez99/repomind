@@ -205,8 +205,9 @@ def test_the_service_catalog_reports_both_committed_fixtures() -> None:
 
     entries = {entry.repo_id: entry for entry in service.catalog()}
 
-    assert set(entries) == {"mini", "production_rag"}
+    assert set(entries) == {"mini", "production_rag", "mini_js"}
     assert entries["mini"].tree_hash != entries["production_rag"].tree_hash
+    assert entries["mini_js"].chunk_count > 0
     assert all(entry.indexer_version == INDEXER_VERSION for entry in entries.values())
 
 

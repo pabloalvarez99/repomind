@@ -13,18 +13,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from repomind.ingest.chunk_javascript import JS_SUFFIXES, chunk_javascript_source
 from repomind.ingest.chunk_python import CodeChunk, chunk_python_source, normalize_source
 from repomind.ingest.walk import walk_repository
 
-INDEXER_VERSION: Final = "1"
+INDEXER_VERSION: Final = "2"
 """Identity of the chunking rules.
 
 Bump this whenever chunk boundaries, ids, or content addresses change meaning. It
 is part of every cache key, so an ingestor built by an older indexer can never
-hand back chunks an upgraded one would not produce.
+hand back chunks an upgraded one would not produce. Version 2 adds free-path
+JavaScript/TypeScript top-level definition chunks alongside Python AST chunks.
 """
 
 PYTHON_SUFFIX: Final = ".py"
+INDEXED_SUFFIXES: Final = frozenset({PYTHON_SUFFIX, *JS_SUFFIXES})
 
 
 def _blob_hash(data: bytes) -> str:
@@ -57,7 +60,11 @@ class RepositorySnapshot:
     @property
     def indexed_file_count(self) -> int:
         """Return how many of those files were parsed into definitions."""
-        return sum(1 for digest in self.files if digest.path.endswith(PYTHON_SUFFIX))
+        return sum(
+            1
+            for digest in self.files
+            if Path(digest.path).suffix.lower() in INDEXED_SUFFIXES
+        )
 
     @property
     def chunk_count(self) -> int:
@@ -139,14 +146,15 @@ class IncrementalIngestor:
 
         for repository_file in walk_repository(self._root):
             data = repository_file.absolute_path.read_bytes()
-            if repository_file.absolute_path.suffix != PYTHON_SUFFIX:
+            suffix = repository_file.absolute_path.suffix.lower()
+            if suffix not in INDEXED_SUFFIXES:
                 # Addressed by the bytes on disk, which is all the walker promises.
                 digests.append(
                     FileDigest(path=repository_file.path, blob_hash=_blob_hash(data))
                 )
                 continue
 
-            # Python files are addressed by their normalized text instead, so a
+            # Source files are addressed by their normalized text instead, so a
             # CRLF checkout and an LF checkout of one commit agree on the tree.
             source = normalize_source(data)
             blob = _blob_hash(source.encode("utf-8"))
@@ -157,7 +165,12 @@ class IncrementalIngestor:
                 file_chunks = cached[1]
                 reused += 1
             else:
-                file_chunks = chunk_python_source(source, path=repository_file.path)
+                if suffix == PYTHON_SUFFIX:
+                    file_chunks = chunk_python_source(source, path=repository_file.path)
+                else:
+                    file_chunks = chunk_javascript_source(
+                        source, path=repository_file.path
+                    )
                 parsed += 1
             fresh[repository_file.path] = (blob, file_chunks)
             chunks.extend(file_chunks)

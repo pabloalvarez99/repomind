@@ -96,7 +96,22 @@ def test_path_shaped_repository_ids_are_rejected_before_any_lookup(repo_id: str)
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize("repo_id", ["mini", "production_rag"])
+def test_post_accepts_mini_js_and_cites_foo() -> None:
+    """Week-3 free-path JS golden: where is foo defined → path:line."""
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/v1/code/ask",
+            json={"question": "Where is foo defined?", "repo_id": "mini_js"},
+        )
+
+    assert response.status_code == 200
+    citation = response.json()["citations"][0]
+    assert citation["path"] == "src/foo.js"
+    assert citation["start_line"] >= 1
+    assert "`foo`" in response.json()["answer"]
+
+
+@pytest.mark.parametrize("repo_id", ["mini", "production_rag", "mini_js"])
 def test_every_surface_agrees_on_a_catalog_id(repo_id: str) -> None:
     """POST, the console, and the symbols outline share one validity function."""
     with TestClient(create_app()) as client:
@@ -145,7 +160,7 @@ def test_catalog_lists_every_repository_with_its_content_address() -> None:
 
     assert response.status_code == 200
     entries = response.json()
-    assert [entry["repo_id"] for entry in entries] == ["mini", "production_rag"]
+    assert [entry["repo_id"] for entry in entries] == ["mini", "mini_js", "production_rag"]
     for entry in entries:
         assert set(entry) == {
             "repo_id",
@@ -221,6 +236,7 @@ def test_console_is_accessible_and_has_no_cdn_dependency() -> None:
     assert '<label for="question">' in response.text
     assert 'value="mini"' in response.text
     assert 'value="production_rag"' in response.text
+    assert 'value="mini_js"' in response.text
     assert "https://" not in response.text
 
 
