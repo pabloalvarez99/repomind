@@ -53,8 +53,9 @@ question   → symbol/token retrieval → grounded answer or refusal
                                       └─ path:start_line-end_line citations
 ```
 
-The fixture proves control flow and citation correctness, not retrieval quality on arbitrary
-repositories. Evaluation evidence will be added with M5.
+The committed 14-question fixture gate currently passes offline. It proves control flow,
+citation correctness, and refusal behavior on the fixture—not retrieval quality on arbitrary
+repositories. See the [evaluation contract](data/eval/README.md).
 
 M1 uses gitwildmatch rules from the repository's root `.gitignore`, skips symlinks, and emits
 one chunk per Python class, function, async function, and method. A chunk id is
