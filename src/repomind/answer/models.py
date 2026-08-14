@@ -21,3 +21,15 @@ class CodeAnswer(BaseModel):
 
     answer: str = Field(min_length=1)
     citations: list[CodeCitation]
+
+
+class CodeSymbol(BaseModel):
+    """One definition in a repository's deterministic source outline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=1)
+    qualname: str = Field(min_length=1)
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    kind: str = Field(min_length=1)

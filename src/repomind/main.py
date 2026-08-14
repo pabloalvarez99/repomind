@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from repomind import __version__
-from repomind.answer import CodeAnswer, CodeAskService, UnknownRepository
+from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol, UnknownRepository
 from repomind.catalog import catalog_roots, mini_root
 
 SERVICE_NAME = "repomind"
@@ -61,6 +61,16 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
         """Answer from indexed definitions, or return an evidence-free refusal."""
         try:
             return code_service.ask(request.question, repo_id=request.repo_id)
+        except UnknownRepository as error:
+            raise HTTPException(
+                status_code=404, detail="repository id is not configured"
+            ) from error
+
+    @app.get("/v1/code/symbols", response_model=list[CodeSymbol], tags=["code"])
+    def code_symbols(repo_id: str = "mini") -> list[CodeSymbol]:
+        """Return a deterministic AST outline for a catalog repository."""
+        try:
+            return code_service.symbols(repo_id=repo_id)
         except UnknownRepository as error:
             raise HTTPException(
                 status_code=404, detail="repository id is not configured"

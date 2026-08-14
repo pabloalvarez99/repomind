@@ -33,6 +33,11 @@ def terms(text: str) -> frozenset[str]:
     return frozenset(found)
 
 
+def identifiers(text: str) -> frozenset[str]:
+    """Return unsplit identifiers used only for exact symbol matching."""
+    return frozenset(token.casefold() for token in _WORD.findall(text))
+
+
 @dataclass(frozen=True, slots=True)
 class SearchResult:
     """A chunk plus transparent lexical relevance evidence."""
@@ -53,6 +58,16 @@ class InMemoryCodeIndex:
     def size(self) -> int:
         """Return the number of indexed definitions."""
         return len(self._chunks)
+
+    @property
+    def chunks(self) -> tuple[CodeChunk, ...]:
+        """Return definitions in deterministic path and source order."""
+        return tuple(
+            sorted(
+                self._chunks,
+                key=lambda chunk: (chunk.path, chunk.start_line, chunk.qualname),
+            )
+        )
 
     def locate_symbol(self, symbol: str) -> tuple[CodeChunk, ...]:
         """Return exact qualified-name or leaf-name matches."""
@@ -81,6 +96,7 @@ class InMemoryCodeIndex:
         if limit < 1:
             raise ValueError("search limit must be positive")
         query_terms = terms(question)
+        query_identifiers = identifiers(question)
         if not query_terms:
             return ()
 
@@ -94,7 +110,10 @@ class InMemoryCodeIndex:
             symbol_overlap = query_terms & symbol_terms
             path_overlap = query_terms & path_terms
             text_overlap = query_terms & text_terms
-            exact = leaf in query_terms or chunk.qualname.casefold() in query_terms
+            exact = (
+                leaf in query_identifiers
+                or chunk.qualname.casefold() in query_identifiers
+            )
             score = (
                 (100 if exact else 0)
                 + 10 * len(symbol_overlap)

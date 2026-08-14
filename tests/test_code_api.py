@@ -66,3 +66,28 @@ def test_openapi_contains_the_exact_code_ask_route() -> None:
 
     assert "/v1/code/ask" in document["paths"]
     assert "post" in document["paths"]["/v1/code/ask"]
+
+
+def test_symbols_returns_a_deterministic_outline() -> None:
+    """The catalog exposes source navigation without source text execution."""
+    with TestClient(create_app()) as client:
+        first = client.get("/v1/code/symbols", params={"repo_id": "mini"})
+        second = client.get("/v1/code/symbols", params={"repo_id": "mini"})
+
+    assert first.status_code == 200
+    assert first.json() == second.json()
+    assert first.json()[0] == {
+        "path": "app/main.py",
+        "qualname": "create_app",
+        "start_line": 6,
+        "end_line": 9,
+        "kind": "function",
+    }
+
+
+def test_symbols_rejects_unknown_repository_id() -> None:
+    """Outline lookup obeys the same closed catalog boundary as questions."""
+    with TestClient(create_app()) as client:
+        response = client.get("/v1/code/symbols", params={"repo_id": "unknown"})
+
+    assert response.status_code == 404

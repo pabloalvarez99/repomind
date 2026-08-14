@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
 
-from repomind.answer.models import CodeAnswer, CodeCitation
+from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol
 from repomind.index import InMemoryCodeIndex, SearchResult
 from repomind.ingest import chunk_repository
 
@@ -80,3 +80,25 @@ class CodeAskService:
             for result in results
         ]
         return CodeAnswer(answer=answer, citations=citations)
+
+    def symbols(self, *, repo_id: str = "mini") -> list[CodeSymbol]:
+        """Return a stable source outline for one configured repository.
+
+        Raises:
+            UnknownRepository: ``repo_id`` is not in the configured catalog.
+        """
+        try:
+            index = self._indexes[repo_id]
+        except KeyError as error:
+            raise UnknownRepository(repo_id) from error
+
+        return [
+            CodeSymbol(
+                path=chunk.path,
+                qualname=chunk.qualname,
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+                kind=chunk.kind,
+            )
+            for chunk in index.chunks
+        ]

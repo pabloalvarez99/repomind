@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from typing import IO, Final
 
 from repomind.answer import CodeAskService
-from repomind.main import fixture_root
+from repomind.catalog import MINI_REPO_ID, REPOSITORY_IDS, catalog_roots
 
 EXIT_ANSWERED: Final = 0
 EXIT_REFUSED: Final = 1
@@ -25,10 +25,12 @@ def build_parser() -> argparse.ArgumentParser:
     ask = commands.add_parser("ask", help="Answer from AST-indexed code evidence.")
     ask.add_argument("question", help="Question or symbol to locate.")
     ask.add_argument(
+        "--repo",
         "--fixture",
-        choices=("mini",),
-        default="mini",
-        help="Committed fixture repository to index (default: mini).",
+        dest="repo_id",
+        choices=REPOSITORY_IDS,
+        default=MINI_REPO_ID,
+        help="Catalog repository to index (default: mini).",
     )
     return parser
 
@@ -37,8 +39,8 @@ def main(argv: Sequence[str] | None = None, *, stdout: IO[str] | None = None) ->
     """Run one CLI command and emit exactly one JSON line on success or refusal."""
     namespace = build_parser().parse_args(argv)
     output = sys.stdout if stdout is None else stdout
-    service = CodeAskService.from_roots({"mini": fixture_root()})
-    response = service.ask(namespace.question, repo_id=namespace.fixture)
+    service = CodeAskService.from_roots(catalog_roots())
+    response = service.ask(namespace.question, repo_id=namespace.repo_id)
     output.write(
         json.dumps(response.model_dump(mode="json"), ensure_ascii=True, separators=(",", ":"))
         + "\n"

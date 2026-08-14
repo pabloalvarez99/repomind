@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from repomind.index import InMemoryCodeIndex
+from repomind.index.memory import identifiers
 from repomind.ingest.chunk_python import chunk_repository
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "mini_repo"
@@ -36,6 +37,16 @@ def test_exact_symbol_lookup_supports_method_leaf_names() -> None:
 
     assert by_leaf == by_qualified_name
     assert by_leaf[0].chunk_id == "app/service.py::GreetingService.greet"
+
+
+def test_exact_symbol_candidates_are_not_split_for_matching() -> None:
+    """An exact ``run_query`` request cannot become an exact ``run`` request."""
+    assert identifiers("Where is run_query defined?") == {
+        "where",
+        "is",
+        "run_query",
+        "defined",
+    }
 
 
 def test_token_overlap_finds_the_service_without_an_exact_symbol() -> None:
