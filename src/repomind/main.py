@@ -1,13 +1,19 @@
 """FastAPI application, operational endpoint, and code-question API."""
 
+from importlib.resources import files
+from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from repomind import __version__
 from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol, UnknownRepository
-from repomind.catalog import catalog_roots, mini_root
+from repomind.catalog import REPOSITORY_IDS, catalog_roots, mini_root
 
 SERVICE_NAME = "repomind"
 
@@ -41,6 +47,11 @@ fixture_root = mini_root
 """Backward-compatible name for the original mini fixture root."""
 
 
+def _package_path(name: str) -> Path:
+    """Return an installed package asset directory."""
+    return Path(str(files("repomind").joinpath(name)))
+
+
 def create_app(service: CodeAskService | None = None) -> FastAPI:
     """Build an isolated API application over an injectable code service."""
     code_service = CodeAskService.from_roots(catalog_roots()) if service is None else service
@@ -50,6 +61,42 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
         description="Offline codebase Q&A with AST-aware path:line citations.",
         license_info={"name": "MIT", "identifier": "MIT"},
     )
+    templates = Jinja2Templates(directory=_package_path("templates"))
+    app.mount("/static", StaticFiles(directory=_package_path("static")), name="static")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def ask_console(request: Request) -> HTMLResponse:
+        """Render the credential-free repository ask console."""
+        return templates.TemplateResponse(
+            request=request,
+            name="index.html",
+            context={"repo_ids": REPOSITORY_IDS},
+        )
+
+    @app.get("/ask", response_class=HTMLResponse, include_in_schema=False)
+    def ask_from_console(
+        request: Request,
+        question: str = Query(min_length=1, max_length=2_000),
+        repo_id: str = Query(default="mini"),
+    ) -> HTMLResponse:
+        """Render one grounded answer or refusal with a trace id."""
+        try:
+            result = code_service.ask(question, repo_id=repo_id)
+        except UnknownRepository as error:
+            raise HTTPException(
+                status_code=404, detail="repository id is not configured"
+            ) from error
+        return templates.TemplateResponse(
+            request=request,
+            name="index.html",
+            context={
+                "repo_ids": REPOSITORY_IDS,
+                "selected_repo": repo_id,
+                "question": question,
+                "result": result,
+                "request_id": str(uuid4()),
+            },
+        )
 
     @app.get("/health", response_model=HealthResponse, tags=["ops"])
     def health() -> HealthResponse:

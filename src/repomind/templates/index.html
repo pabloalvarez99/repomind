@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Ask RepoMind's deterministic code catalogs and inspect path:line evidence.">
+    <title>RepoMind · Code evidence, offline</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">RepoMind / deterministic lexical navigation</p>
+        <h1>Ask the code.<br><span>Keep the receipts.</span></h1>
+        <p class="lede">AST-aware answers over a closed, read-only catalog. No model, no embeddings, no bill.</p>
+      </header>
+
+      <section class="panel" aria-labelledby="ask-heading">
+        <h2 id="ask-heading">Ask a repository</h2>
+        <form action="/ask" method="get">
+          <div class="field repo-field">
+            <label for="repo_id">Repository</label>
+            <select id="repo_id" name="repo_id">
+              {% for repo_id in repo_ids %}
+              <option value="{{ repo_id }}"{% if selected_repo == repo_id %} selected{% endif %}>{{ repo_id }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field question-field">
+            <label for="question">Code question</label>
+            <input id="question" name="question" type="text" required maxlength="2000"
+                   value="{{ question | default('Where is create_app defined?') }}"
+                   aria-describedby="question-help">
+            <p id="question-help" class="help">Try an exact symbol such as <code>run_query</code>, or describe a behavior.</p>
+          </div>
+          <button type="submit">Locate evidence <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+
+      {% if result is defined %}
+      <section class="result panel" aria-live="polite" aria-labelledby="result-heading">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Result</p>
+            <h2 id="result-heading">{% if result.citations %}Grounded answer{% else %}No evidence found{% endif %}</h2>
+          </div>
+          <span class="status {% if result.citations %}found{% else %}refused{% endif %}">
+            {% if result.citations %}cited{% else %}refused{% endif %}
+          </span>
+        </div>
+        <p class="answer">{{ result.answer }}</p>
+        {% if result.citations %}
+        <h3>Source evidence</h3>
+        <ol class="citations">
+          {% for citation in result.citations %}
+          <li>
+            <code class="location">{{ citation.path }}:{{ citation.start_line }}-{{ citation.end_line }}</code>
+            {% if citation.snippet %}<pre><code>{{ citation.snippet }}</code></pre>{% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        <p class="refusal-note">RepoMind will not manufacture an answer when lexical evidence is absent.</p>
+        {% endif %}
+        <p class="request-id">request_id <code>{{ request_id }}</code></p>
+      </section>
+      {% endif %}
+
+      <footer>
+        <span>Python AST</span><span>Closed catalog</span><span>$0 deterministic path</span>
+      </footer>
+    </main>
+  </body>
+</html>
