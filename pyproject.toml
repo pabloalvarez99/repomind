@@ -12,6 +12,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
     "fastapi>=0.115",
+    "pathspec>=0.12",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -43,6 +44,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN", "D"]
+"fixtures/**" = ["ANN", "D"]
 
 [tool.mypy]
 python_version = "3.12"

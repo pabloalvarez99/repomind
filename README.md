@@ -11,7 +11,7 @@ end to end without API keys, network calls, or billed providers.
 | Milestone | Capability | Status |
 | --- | --- | --- |
 | M0 | Python package, FastAPI health endpoint, tests and CI | LIVE |
-| M1 | Repository walk and AST chunks | PLANNED |
+| M1 | Repository walk and AST chunks | LIVE |
 | M2 | In-memory symbol and token index | PLANNED |
 | M3 | Code Q&A with path:line citations | PLANNED |
 | M4 | JSON CLI | PLANNED |
@@ -43,6 +43,10 @@ question   → symbol/token retrieval → grounded answer or refusal
 
 The fixture proves control flow and citation correctness, not retrieval quality on arbitrary
 repositories. Evaluation evidence will be added with M5.
+
+M1 uses gitwildmatch rules from the repository's root `.gitignore`, skips symlinks, and emits
+one chunk per Python class, function, async function, and method. A chunk id is
+`path::qualname`; its line range comes directly from Python's AST.
 
 ## License
 
