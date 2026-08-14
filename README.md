@@ -1,5 +1,7 @@
 # RepoMind
 
+[![CI](https://github.com/pabloalvarez99/repomind/actions/workflows/ci.yml/badge.svg)](https://github.com/pabloalvarez99/repomind/actions/workflows/ci.yml)
+
 Repository Q&A with AST-aware Python chunking and path:line citations, designed to run
 end to end without API keys, network calls, or billed providers.
 

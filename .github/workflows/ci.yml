@@ -41,3 +41,29 @@ jobs:
 
       - name: Test
         run: pytest -q
+
+      - name: Prove the credential-free CLI and evaluation path
+        run: |
+          result=$(python -m repomind ask "Where is create_app defined?" --fixture mini)
+          RESULT="$result" python -c 'import json, os; payload=json.loads(os.environ["RESULT"]); citation=payload["citations"][0]; assert citation["path"] == "app/main.py"; assert citation["start_line"] == 6'
+          python -m repomind.evals.run
+
+      - name: Prove the credential-free HTTP path
+        run: |
+          python -m uvicorn repomind.main:app --host 127.0.0.1 --port 8020 > api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8020/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          response=$(curl --fail --silent http://127.0.0.1:8020/v1/code/ask \
+            -H 'content-type: application/json' \
+            -d '{"question":"Where is create_app defined?","repo_id":"mini"}')
+          RESPONSE="$response" python -c 'import json, os; payload=json.loads(os.environ["RESPONSE"]); citation=payload["citations"][0]; assert citation["path"] == "app/main.py"; assert citation["start_line"] == 6; assert citation["end_line"] == 9'
+
+      - name: Show the API log after a failure
+        if: failure()
+        run: cat api.log || true
