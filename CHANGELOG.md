@@ -8,6 +8,9 @@
   stays out of CI.
 - Committed `docs/assets/ui-mini-hit.png`, `ui-mini-refuse.png`, and `ui-dogfood-hit.png` so a
   reviewer can see a `path:start-end` citation without running the server.
+- `docs/assets/ui-captures.sha256` plus `tests/test_capture_assets.py` close the stale-evidence
+  hole: every image published by the README, SHIP, or case study must exist, must be hashed, and
+  must match its recorded sha256. CI checks hashes only, so no browser is downloaded.
 - Case study rewritten around four decisions and an explicit account of what the 14/14 and 8/8
   scores do and do not prove; linked above the fold in the README.
 - P1–P5 portfolio series badge strip; SHIP release evidence is now a LIVE-status table.

@@ -45,7 +45,13 @@
 | Console capture, mini exact-symbol hit with `path:start-end` | `docs/assets/ui-mini-hit.png` | LIVE |
 | Console capture, mini refusal with zero citations | `docs/assets/ui-mini-refuse.png` | LIVE |
 | Console capture, `production_rag` snapshot hit | `docs/assets/ui-dogfood-hit.png` | LIVE |
+| Capture staleness gate, hashes checked on every CI run | `tests/test_capture_assets.py` | LIVE |
 
 Capture rows are LIVE only while `scripts/capture_ui.py` and all three PNGs are committed. The
 script pins the correlation id and nothing else, so an unchanged tree reproduces identical
 bytes; a changed console requires regenerating the PNGs in the same commit.
+
+CI keeps those rows honest without a browser. `docs/assets/ui-captures.sha256` records one
+sha256 per committed PNG, and `tests/test_capture_assets.py` fails when a documented image is
+missing, when a referenced PNG has no hash, or when the committed bytes drift. Regenerating
+captures is a local step; verifying them is not.
