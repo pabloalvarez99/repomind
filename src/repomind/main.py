@@ -9,16 +9,24 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.responses import Response
 
 from repomind import __version__
-from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol, UnknownRepository
-from repomind.catalog import REPOSITORY_IDS, catalog_roots, mini_root
+from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol
+from repomind.catalog import (
+    MINI_REPO_ID,
+    BlankRepositoryId,
+    MalformedRepositoryId,
+    UnknownRepository,
+    catalog_ids,
+    catalog_roots,
+    mini_root,
+)
 
 SERVICE_NAME = "repomind"
 LOGGER = logging.getLogger("repomind.http")
@@ -38,7 +46,12 @@ class CodeAskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=1, max_length=2_000)
-    repo_id: str = Field(default="mini", min_length=1, max_length=64, pattern=r"^[a-z0-9-]+$")
+    # No shape pattern here: a repo_id is an identifier the catalog hands out, and
+    # the catalog already publishes one -- ``production_rag`` -- that no slug regex
+    # accepts. Membership is decided by repomind.catalog.validate_repo_id, which
+    # every other surface uses too, including the 64-character bound. Only
+    # emptiness is a schema concern, because an absent id is not a wrong id.
+    repo_id: str = Field(default=MINI_REPO_ID, min_length=1)
 
     @field_validator("question")
     @classmethod
@@ -69,6 +82,27 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
     )
     templates = Jinja2Templates(directory=_package_path("templates"))
     app.mount("/static", StaticFiles(directory=_package_path("static")), name="static")
+
+    # One mapping from the one validity function, so every surface answers a bad
+    # id with the same status: nothing sent is 422, path-shaped is 400 (the caller
+    # tried something the catalog will never serve), well formed but absent is 404.
+    def _repo_id_error(status_code: int, detail: str) -> JSONResponse:
+        return JSONResponse(status_code=status_code, content={"detail": detail})
+
+    @app.exception_handler(BlankRepositoryId)
+    async def _blank_repo_id(request: Request, error: Exception) -> JSONResponse:
+        """Answer a missing repository id as a request-validation failure."""
+        return _repo_id_error(422, "repository id must not be blank")
+
+    @app.exception_handler(MalformedRepositoryId)
+    async def _malformed_repo_id(request: Request, error: Exception) -> JSONResponse:
+        """Answer a path-shaped repository id without revealing what exists."""
+        return _repo_id_error(400, "repository id is not a catalog identifier")
+
+    @app.exception_handler(UnknownRepository)
+    async def _unknown_repo_id(request: Request, error: Exception) -> JSONResponse:
+        """Answer a well-formed id that names nothing in the closed catalog."""
+        return _repo_id_error(404, "repository id is not configured")
 
     @app.middleware("http")
     async def request_context(
@@ -101,27 +135,22 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"repo_ids": REPOSITORY_IDS},
+            context={"repo_ids": catalog_ids()},
         )
 
     @app.get("/ask", response_class=HTMLResponse, include_in_schema=False)
     def ask_from_console(
         request: Request,
         question: str = Query(min_length=1, max_length=2_000),
-        repo_id: str = Query(default="mini"),
+        repo_id: str = Query(default=MINI_REPO_ID),
     ) -> HTMLResponse:
         """Render one grounded answer or refusal with a trace id."""
-        try:
-            result = code_service.ask(question, repo_id=repo_id)
-        except UnknownRepository as error:
-            raise HTTPException(
-                status_code=404, detail="repository id is not configured"
-            ) from error
+        result = code_service.ask(question, repo_id=repo_id)
         return templates.TemplateResponse(
             request=request,
             name="index.html",
             context={
-                "repo_ids": REPOSITORY_IDS,
+                "repo_ids": catalog_ids(),
                 "selected_repo": repo_id,
                 "question": question,
                 "result": result,
@@ -137,22 +166,12 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
     @app.post("/v1/code/ask", response_model=CodeAnswer, tags=["code"])
     def ask_code(request: CodeAskRequest) -> CodeAnswer:
         """Answer from indexed definitions, or return an evidence-free refusal."""
-        try:
-            return code_service.ask(request.question, repo_id=request.repo_id)
-        except UnknownRepository as error:
-            raise HTTPException(
-                status_code=404, detail="repository id is not configured"
-            ) from error
+        return code_service.ask(request.question, repo_id=request.repo_id)
 
     @app.get("/v1/code/symbols", response_model=list[CodeSymbol], tags=["code"])
-    def code_symbols(repo_id: str = "mini") -> list[CodeSymbol]:
+    def code_symbols(repo_id: str = MINI_REPO_ID) -> list[CodeSymbol]:
         """Return a deterministic AST outline for a catalog repository."""
-        try:
-            return code_service.symbols(repo_id=repo_id)
-        except UnknownRepository as error:
-            raise HTTPException(
-                status_code=404, detail="repository id is not configured"
-            ) from error
+        return code_service.symbols(repo_id=repo_id)
 
     return app
 

@@ -157,6 +157,15 @@ answer quality—and reports `judge: null` and `billed_usd: 0.0`.
 - `POST /v1/code/ask` — answer or fixed refusal with path:line citations.
 - `GET /` and `GET /ask` — accessible ask console, local or hosted.
 
+### `repo_id` is a catalog identifier
+
+Every surface above resolves `repo_id` through one function, `repomind.catalog.validate_repo_id`,
+whose allowlist is derived from `catalog_roots()`. The valid ids are exactly `mini` and
+`production_rag` — an id is an identifier the catalog hands out, not a URL slug, so an underscore
+in it means nothing and is forbidden by nothing. A blank id is `422`, a path-shaped id such as
+`../../etc` is `400`, and a well-formed id outside the catalog is `404`. The CLI applies the same
+rule, exits `2`, and prints the known ids.
+
 The hosted deployment serves this same ASGI app: `main.py` at the repository root imports
 `repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`
 and `fixtures/` so the packaged catalog resolves in the function.
