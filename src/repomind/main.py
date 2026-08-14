@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.responses import Response
 
 from repomind import __version__
-from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol
+from repomind.answer import CodeAnswer, CodeAskService, CodeSymbol, RepositoryMetadata
 from repomind.catalog import (
     MINI_REPO_ID,
     BlankRepositoryId,
@@ -162,6 +162,16 @@ def create_app(service: CodeAskService | None = None) -> FastAPI:
     def health() -> HealthResponse:
         """Report that the API process is alive."""
         return HealthResponse()
+
+    @app.get("/v1/catalog", response_model=list[RepositoryMetadata], tags=["code"])
+    def catalog() -> list[RepositoryMetadata]:
+        """List every repository this instance serves, with its content address.
+
+        Takes no arguments on purpose. The catalog is the answer to "what can I
+        ask about", so it cannot also be a place to name something it does not
+        already hold.
+        """
+        return code_service.catalog()
 
     @app.post("/v1/code/ask", response_model=CodeAnswer, tags=["code"])
     def ask_code(request: CodeAskRequest) -> CodeAnswer:

@@ -153,6 +153,7 @@ answer quality—and reports `judge: null` and `billed_usd: 0.0`.
 ## API surface
 
 - `GET /health` — liveness and version.
+- `GET /v1/catalog` — every repository served, with its tree hash and indexer version.
 - `GET /v1/code/symbols?repo_id=mini` — deterministic definition outline.
 - `POST /v1/code/ask` — answer or fixed refusal with path:line citations.
 - `GET /` and `GET /ask` — accessible ask console, local or hosted.
@@ -165,6 +166,22 @@ whose allowlist is derived from `catalog_roots()`. The valid ids are exactly `mi
 in it means nothing and is forbidden by nothing. A blank id is `422`, a path-shaped id such as
 `../../etc` is `400`, and a well-formed id outside the catalog is `404`. The CLI applies the same
 rule, exits `2`, and prints the known ids.
+
+### The index is content-addressed
+
+Every definition carries a `content_hash` over its kind, qualified name, and exact source text.
+Every visible file carries a blob hash, and every repository a `tree_hash` folded from the
+sorted `(path, blob_hash)` pairs plus the `INDEXER_VERSION` that read them. `GET /v1/catalog`
+publishes those, so two instances reporting the same tree hash and indexer version are provably
+answering from the same index.
+
+Ingest is incremental against those addresses: re-ingesting an unchanged repository parses zero
+files, and an edit costs one parse instead of a repository. Python sources are hashed after
+CRLF normalization, so one commit checked out on Windows and on Linux advertises one index.
+
+There is no upload endpoint, and there will not be one. The hosted instance indexes only the
+fixtures committed here — see [ADR 0003](docs/adr/0003-content-addressed-catalog-index.md) for
+why a public box that ingests a stranger's archive is a different product with different risks.
 
 The hosted deployment serves this same ASGI app: `main.py` at the repository root imports
 `repomind.main:app`, and `vercel.json` builds it with `@vercel/python`, including `src/`

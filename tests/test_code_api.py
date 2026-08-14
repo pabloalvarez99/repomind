@@ -138,6 +138,45 @@ def test_blank_question_is_rejected() -> None:
     assert response.status_code == 422
 
 
+def test_catalog_lists_every_repository_with_its_content_address() -> None:
+    """A caller can see what this instance indexes without guessing an id."""
+    with TestClient(create_app()) as client:
+        response = client.get("/v1/catalog")
+
+    assert response.status_code == 200
+    entries = response.json()
+    assert [entry["repo_id"] for entry in entries] == ["mini", "production_rag"]
+    for entry in entries:
+        assert set(entry) == {
+            "repo_id",
+            "file_count",
+            "indexed_file_count",
+            "chunk_count",
+            "tree_hash",
+            "indexer_version",
+        }
+        assert len(entry["tree_hash"]) == 64
+        assert entry["indexed_file_count"] <= entry["file_count"]
+        assert entry["chunk_count"] > 0
+
+
+def test_catalog_is_stable_across_requests() -> None:
+    """The tree hash addresses committed bytes, so it cannot drift per request."""
+    with TestClient(create_app()) as client:
+        first = client.get("/v1/catalog").json()
+        second = client.get("/v1/catalog").json()
+
+    assert first == second
+
+
+def test_catalog_takes_no_arguments_that_could_name_a_path() -> None:
+    """The route that says what exists is not a place to ask for something else."""
+    with TestClient(create_app()) as client:
+        document = client.get("/openapi.json").json()
+
+    assert document["paths"]["/v1/catalog"]["get"].get("parameters", []) == []
+
+
 def test_openapi_contains_the_exact_code_ask_route() -> None:
     """The planned API surface remains discoverable."""
     with TestClient(create_app()) as client:

@@ -1,6 +1,6 @@
 """Grounded answer composition."""
 
-from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol
+from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol, RepositoryMetadata
 from repomind.answer.service import CodeAskService, UnknownRepository
 
 __all__ = [
@@ -8,5 +8,6 @@ __all__ = [
     "CodeAskService",
     "CodeCitation",
     "CodeSymbol",
+    "RepositoryMetadata",
     "UnknownRepository",
 ]

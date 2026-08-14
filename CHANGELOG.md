@@ -10,10 +10,27 @@
   function, `repomind.catalog.validate_repo_id`, whose allowlist is derived from
   `catalog_roots()` — the ids callers may send cannot drift from the ids the service can serve.
 
+### Added
+
+- Content-addressed ingest. Every chunk carries a `content_hash` over its kind, qualified name,
+  and source text; every visible file a blob hash; every repository a `tree_hash` folded from the
+  sorted `(path, blob_hash)` pairs and the `INDEXER_VERSION` that read them. Python sources are
+  hashed after CRLF normalization so one commit advertises one index on every platform.
+- Incremental re-ingest. `IncrementalIngestor` reuses chunks whose bytes are unchanged, so
+  re-ingesting an unchanged repository parses zero files and an edit costs one parse rather than
+  a repository. Reuse is decided by content, not by a timestamp.
+- `GET /v1/catalog` and `CodeAskService.catalog()` publish `repo_id`, file count, indexed file
+  count, chunk count, tree hash, and indexer version. The route takes no arguments: the answer to
+  "what can I ask about" is not also a place to name something the catalog does not hold.
+- `CodeAskService.reindex(repo_id=...)` re-ingests one catalog repository and reports what the
+  ingest actually did.
+- ADR 0003 records why the way in is a catalog id, why the tree is hashed, and why the hosted
+  instance will not accept a stranger's zip.
+
 ### Changed
 
-- `POST /v1/code/ask`, `GET /ask`, `GET /v1/code/symbols`, and the CLI share that function and
-  therefore agree on every id. Blank is 422, path-shaped is 400, well-formed-but-absent is 404;
+- `POST /v1/code/ask`, `GET /ask`, `GET /v1/code/symbols`, `GET /v1/catalog`, and the CLI share
+  the one validity function and therefore agree on every id. Blank is 422, path-shaped is 400, well-formed-but-absent is 404;
   the CLI exits 2 and names the known ids on stderr. Previously argparse kept its own `choices`
   allowlist and the two HTTP GET routes had no shape check at all.
 - No other runtime, API, or eval behavior changed; the additions below are hosting and

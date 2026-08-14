@@ -81,6 +81,8 @@ jobs:
           check_repo_id '../../etc' 400
           check_repo_id '' 422
           check_repo_id '   ' 422
+          catalog=$(curl --fail --silent http://127.0.0.1:8020/v1/catalog)
+          CATALOG="$catalog" python -c 'import json, os; entries=json.loads(os.environ["CATALOG"]); assert [e["repo_id"] for e in entries] == ["mini", "production_rag"]; assert all(len(e["tree_hash"]) == 64 and e["chunk_count"] > 0 for e in entries)'
           symbols=$(curl --fail --silent 'http://127.0.0.1:8020/v1/code/symbols?repo_id=mini')
           SYMBOLS="$symbols" python -c 'import json, os; payload=json.loads(os.environ["SYMBOLS"]); assert payload[0]["qualname"] == "create_app"'
           ui=$(curl --fail --silent --get http://127.0.0.1:8020/ask \
