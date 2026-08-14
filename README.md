@@ -13,7 +13,7 @@ end to end without API keys, network calls, or billed providers.
 | M0 | Python package, FastAPI health endpoint, tests and CI | LIVE |
 | M1 | Repository walk and AST chunks | LIVE |
 | M2 | In-memory symbol and token index | LIVE |
-| M3 | Code Q&A with path:line citations | PLANNED |
+| M3 | Code Q&A with path:line citations | LIVE |
 | M4 | JSON CLI | PLANNED |
 | M5 | Fixture evaluation harness | PLANNED |
 
@@ -28,6 +28,9 @@ python -m venv .venv
 .venv/bin/python -m pytest -q
 .venv/bin/python -m uvicorn repomind.main:app --port 8020
 curl -s http://127.0.0.1:8020/health
+curl -s http://127.0.0.1:8020/v1/code/ask \
+  -H 'content-type: application/json' \
+  -d '{"question":"Where is create_app defined?","repo_id":"mini"}'
 ```
 
 The default path is deterministic and offline. `.env.example` contains only empty
@@ -51,6 +54,11 @@ one chunk per Python class, function, async function, and method. A chunk id is
 M2 indexes those chunks in memory. Exact symbol matches outrank identifier-aware token
 overlap across qualified names, paths, and source; deterministic tie-breaking makes results
 reproducible. There is no embedding model and no network call in this index.
+
+M3 exposes `POST /v1/code/ask`. Every answer sentence identifies a retrieved definition and
+every citation carries its repository-relative path and exact AST line range. No match produces
+an explicit refusal with an empty citation list. Repository ids select a fixed catalog; they are
+never interpreted as caller-controlled filesystem paths.
 
 ## License
 
