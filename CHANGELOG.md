@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Documentation only; no runtime, API, or eval behavior changed.
+- `scripts/capture_ui.py` regenerates three deterministic console screenshots and asserts the
+  rendered outcome before writing each PNG. Playwright lives in a new optional `docs` extra and
+  stays out of CI.
+- Committed `docs/assets/ui-mini-hit.png`, `ui-mini-refuse.png`, and `ui-dogfood-hit.png` so a
+  reviewer can see a `path:start-end` citation without running the server.
+- Case study rewritten around four decisions and an explicit account of what the 14/14 and 8/8
+  scores do and do not prove; linked above the fold in the README.
+- P1–P5 portfolio series badge strip; SHIP release evidence is now a LIVE-status table.
+
 ## v0.1.0 — 2026-08-14
 
 - Parse-only Python AST chunks with stable `path::qualname` ids and line ranges.

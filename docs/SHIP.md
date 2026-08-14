@@ -26,13 +26,26 @@
 ## Polish
 
 - [x] CI, Python, and license badges.
+- [x] P1–P5 portfolio series badge strip.
 - [x] Architecture diagram.
 - [x] Free-path console covered by live HTTP tests.
+- [x] Case study linked above the fold for non-running reviewers.
+- [x] Deterministic UI captures committed under `docs/assets`.
 
 ## Release evidence
 
-- Mini eval: 14/14 committed cases.
-- Production RAG dogfood: 8/8 committed snapshot cases.
-- CLI stdout: exactly one JSON object.
-- UI: local assets, labeled controls, citation/refusal states, request id.
-- Container: Python 3.12 slim, unprivileged runtime, port 8020.
+| Evidence | Where | Status |
+| --- | --- | --- |
+| Mini eval, 14/14 committed cases | `python -m repomind.evals.run` | LIVE |
+| Production RAG dogfood, 8/8 snapshot cases | `python -m repomind.evals.dogfood` | LIVE |
+| CLI stdout, exactly one JSON object | `python -m repomind ask ...` | LIVE |
+| Container, Python 3.12 slim, unprivileged, port 8020 | `Dockerfile` | LIVE |
+| Case study with decisions and eval limits | [`docs/CASESTUDY.md`](CASESTUDY.md) | LIVE |
+| UI capture script, asserts outcome before writing | [`scripts/capture_ui.py`](../scripts/capture_ui.py) | LIVE |
+| Console capture, mini exact-symbol hit with `path:start-end` | `docs/assets/ui-mini-hit.png` | LIVE |
+| Console capture, mini refusal with zero citations | `docs/assets/ui-mini-refuse.png` | LIVE |
+| Console capture, `production_rag` snapshot hit | `docs/assets/ui-dogfood-hit.png` | LIVE |
+
+Capture rows are LIVE only while `scripts/capture_ui.py` and all three PNGs are committed. The
+script pins the correlation id and nothing else, so an unchanged tree reproduces identical
+bytes; a changed console requires regenerating the PNGs in the same commit.
