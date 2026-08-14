@@ -209,6 +209,39 @@ def test_the_service_catalog_reports_both_committed_fixtures() -> None:
     assert entries["mini"].tree_hash != entries["production_rag"].tree_hash
     assert entries["mini_js"].chunk_count > 0
     assert all(entry.indexer_version == INDEXER_VERSION for entry in entries.values())
+    # Week-2 honesty: production_rag pin is catalog metadata, not a live clone.
+    assert entries["production_rag"].source_sha == (
+        "d43f81265842c95130a4b064cfca8a220dfd5431"
+    )
+    assert entries["production_rag"].source_repo == "pabloalvarez99/production-rag"
+    assert entries["mini"].source_sha is None
+
+
+def test_production_rag_unchanged_files_noop_changed_files_reindex(tmp_path: Path) -> None:
+    """Dogfood snapshot: second pass no-ops; an edited file re-parses only itself."""
+    src = Path(__file__).parents[1] / "fixtures" / "production_rag"
+    root = tmp_path / "production_rag"
+    shutil.copytree(src, root)
+    # Drop snapshot metadata so the copy is a plain tree under test control.
+    repomind_meta = root / ".repomind"
+    if repomind_meta.is_dir():
+        shutil.rmtree(repomind_meta)
+
+    ingestor = IncrementalIngestor(root)
+    first = ingestor.ingest()
+    second = ingestor.ingest()
+    assert first.stats.parsed_files > 0
+    assert second.stats.is_noop
+
+    target = root / "production_rag" / "retrieval" / "rrf.py"
+    target.write_text(
+        target.read_text(encoding="utf-8") + "\n\ndef _fixture_marker() -> int:\n    return 1\n",
+        encoding="utf-8",
+    )
+    third = ingestor.ingest()
+    assert third.stats.parsed_files == 1
+    assert third.stats.reused_files == first.stats.parsed_files - 1
+    assert any(chunk.qualname == "_fixture_marker" for chunk in third.snapshot.chunks)
 
 
 def test_ingest_obeys_the_same_gitignore_boundary_as_the_walker(repository: Path) -> None:

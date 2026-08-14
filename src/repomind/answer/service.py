@@ -2,19 +2,48 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
 
-from repomind.answer.models import CodeAnswer, CodeCitation, CodeSymbol, RepositoryMetadata
+from repomind.answer.models import (
+    CallSiteModel,
+    CodeAnswer,
+    CodeCitation,
+    CodeSymbol,
+    IncomingRefsResponse,
+    RepositoryMetadata,
+)
 from repomind.catalog import MINI_REPO_ID, UnknownRepository, validate_repo_id
 from repomind.index import InMemoryCodeIndex, SearchResult
 from repomind.ingest import IncrementalIngestor, IngestStats, RepositorySnapshot
+from repomind.ingest.call_graph import CallSite, build_incoming_refs, incoming_for
 
 REFUSAL: Final = "I could not find code evidence that answers this question."
 MAX_CITATIONS: Final = 3
+_SOURCE_META_REL: Final = Path(".repomind") / "source.json"
 
 __all__ = ["MAX_CITATIONS", "REFUSAL", "CodeAskService", "UnknownRepository"]
+
+
+def _load_source_meta(root: Path) -> tuple[str | None, str | None]:
+    """Return optional (source_sha, source_repo) from a fixture pin file."""
+    path = root / _SOURCE_META_REL
+    if not path.is_file():
+        return None, None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    sha = payload.get("source_sha")
+    repo = payload.get("upstream")
+    return (
+        sha if isinstance(sha, str) and sha.strip() else None,
+        repo if isinstance(repo, str) and repo.strip() else None,
+    )
 
 
 def _snippet(result: SearchResult) -> str:
@@ -43,6 +72,9 @@ class CodeAskService:
         *,
         ingestors: Mapping[str, IncrementalIngestor] | None = None,
         snapshots: Mapping[str, RepositorySnapshot] | None = None,
+        source_meta: Mapping[str, tuple[str | None, str | None]] | None = None,
+        roots: Mapping[str, Path] | None = None,
+        refs: Mapping[str, Mapping[str, tuple[CallSite, ...]]] | None = None,
     ) -> None:
         """Store an immutable copy of the allowed repository catalog.
 
@@ -53,12 +85,22 @@ class CodeAskService:
         self._indexes = dict(indexes)
         self._ingestors = dict(ingestors or {})
         self._snapshots = dict(snapshots or {})
+        self._source_meta = dict(source_meta or {})
+        self._roots = dict(roots or {})
+        self._refs = {repo_id: dict(table) for repo_id, table in (refs or {}).items()}
 
     @classmethod
     def from_roots(cls, roots: Mapping[str, Path]) -> CodeAskService:
         """Build one content-addressed index per configured repository id."""
         ingestors = {repo_id: IncrementalIngestor(root) for repo_id, root in roots.items()}
         snapshots = {repo_id: ingestor.ingest().snapshot for repo_id, ingestor in ingestors.items()}
+        source_meta = {repo_id: _load_source_meta(root) for repo_id, root in roots.items()}
+        refs = {
+            repo_id: build_incoming_refs(root, definitions=snapshot.chunks)
+            for repo_id, (root, snapshot) in (
+                (repo_id, (roots[repo_id], snapshots[repo_id])) for repo_id in roots
+            )
+        }
         return cls(
             {
                 repo_id: InMemoryCodeIndex(snapshot.chunks)
@@ -66,21 +108,29 @@ class CodeAskService:
             },
             ingestors=ingestors,
             snapshots=snapshots,
+            source_meta=source_meta,
+            roots=roots,
+            refs=refs,
         )
 
     def catalog(self) -> list[RepositoryMetadata]:
         """Return addressable metadata for every repository this service serves."""
-        return [
-            RepositoryMetadata(
-                repo_id=repo_id,
-                file_count=snapshot.file_count,
-                indexed_file_count=snapshot.indexed_file_count,
-                chunk_count=snapshot.chunk_count,
-                tree_hash=snapshot.tree_hash,
-                indexer_version=snapshot.indexer_version,
+        entries: list[RepositoryMetadata] = []
+        for repo_id, snapshot in sorted(self._snapshots.items()):
+            sha, upstream = self._source_meta.get(repo_id, (None, None))
+            entries.append(
+                RepositoryMetadata(
+                    repo_id=repo_id,
+                    file_count=snapshot.file_count,
+                    indexed_file_count=snapshot.indexed_file_count,
+                    chunk_count=snapshot.chunk_count,
+                    tree_hash=snapshot.tree_hash,
+                    indexer_version=snapshot.indexer_version,
+                    source_sha=sha,
+                    source_repo=upstream,
+                )
             )
-            for repo_id, snapshot in sorted(self._snapshots.items())
-        ]
+        return entries
 
     def reindex(self, *, repo_id: str) -> IngestStats:
         """Re-ingest one repository, reusing every file whose bytes are unchanged.
@@ -97,6 +147,11 @@ class CodeAskService:
         outcome = self._ingestors[validated].ingest()
         self._snapshots[validated] = outcome.snapshot
         self._indexes[validated] = InMemoryCodeIndex(outcome.snapshot.chunks)
+        root = self._roots.get(validated)
+        if root is not None:
+            self._refs[validated] = build_incoming_refs(
+                root, definitions=outcome.snapshot.chunks
+            )
         return outcome.stats
 
     def _index_for(self, repo_id: str) -> InMemoryCodeIndex:
@@ -157,3 +212,41 @@ class CodeAskService:
             )
             for chunk in index.chunks
         ]
+
+    def incoming_refs(
+        self, *, repo_id: str = MINI_REPO_ID, symbol: str
+    ) -> IncomingRefsResponse:
+        """Return Python AST call sites that name ``symbol`` in a catalog repo.
+
+        Zero callers is a valid leaf. Unknown short names also return zero
+        callers rather than inventing edges. Only fixture/catalog roots are
+        accepted — the same validity function as every other surface.
+
+        Raises:
+            BlankRepositoryId / MalformedRepositoryId / UnknownRepository: bad id.
+            ValueError: ``symbol`` is blank.
+        """
+        if not symbol or not symbol.strip():
+            raise ValueError("symbol must not be blank")
+        validated = validate_repo_id(repo_id, known=self._indexes)
+        table = self._refs.get(validated, {})
+        if not table and validated in self._roots:
+            snapshot = self._snapshots.get(validated)
+            chunks = snapshot.chunks if snapshot is not None else ()
+            table = build_incoming_refs(self._roots[validated], definitions=chunks)
+            self._refs[validated] = table
+        qualname, sites = incoming_for(table, symbol)
+        return IncomingRefsResponse(
+            repo_id=validated,
+            symbol=symbol.strip(),
+            qualname=qualname,
+            callers=[
+                CallSiteModel(
+                    path=site.path,
+                    line=site.line,
+                    caller_qualname=site.caller_qualname,
+                    callee_name=site.callee_name,
+                )
+                for site in sites
+            ],
+        )

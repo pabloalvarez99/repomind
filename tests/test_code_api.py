@@ -53,7 +53,9 @@ def test_post_accepts_the_catalog_id_that_contains_an_underscore() -> None:
     assert response.status_code == 200
     citation = response.json()["citations"][0]
     assert citation["path"] == "production_rag/query_pipeline.py"
-    assert citation["start_line"] == 220
+    # Pinned P1 snapshot d43f812: run_query lives at this range (retarget, not weaken).
+    assert citation["start_line"] == 244
+    assert citation["end_line"] == 277
 
 
 def test_unknown_repository_id_is_not_treated_as_a_path() -> None:
@@ -162,17 +164,24 @@ def test_catalog_lists_every_repository_with_its_content_address() -> None:
     entries = response.json()
     assert [entry["repo_id"] for entry in entries] == ["mini", "mini_js", "production_rag"]
     for entry in entries:
-        assert set(entry) == {
+        assert {
             "repo_id",
             "file_count",
             "indexed_file_count",
             "chunk_count",
             "tree_hash",
             "indexer_version",
-        }
+            "source_sha",
+            "source_repo",
+        }.issubset(entry)
         assert len(entry["tree_hash"]) == 64
         assert entry["indexed_file_count"] <= entry["file_count"]
         assert entry["chunk_count"] > 0
+    by_id = {entry["repo_id"]: entry for entry in entries}
+    assert by_id["production_rag"]["source_sha"] == (
+        "d43f81265842c95130a4b064cfca8a220dfd5431"
+    )
+    assert by_id["mini"]["source_sha"] is None
 
 
 def test_catalog_is_stable_across_requests() -> None:
@@ -249,7 +258,8 @@ def test_console_renders_path_line_evidence_and_request_id() -> None:
         )
 
     assert response.status_code == 200
-    assert "production_rag/query_pipeline.py:220-250" in response.text
+    # Retargeted to pinned P1 snapshot d43f812 (run_query 244-277), not weakened.
+    assert "production_rag/query_pipeline.py:244-277" in response.text
     request_id = response.headers["x-request-id"]
     assert re.fullmatch(r"[0-9a-f-]{36}", request_id)
     assert f"request_id <code>{request_id}</code>" in response.text

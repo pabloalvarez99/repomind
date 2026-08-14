@@ -7,7 +7,7 @@ line-addressable evidence without executing repository code or calling a model.
 closed repo_id catalog  (mini | production_rag | mini_js)
         │
         ▼
-safe walk ── nested .gitignore + hard cache skips + no symlinks
+safe walk ── nested .gitignore + hard cache skips + no symlinks + skip .repomind/
         │
         ▼
 Python AST + free-path JS/TS top-level chunks (`path::qualname`, content_hash)
@@ -20,7 +20,9 @@ question ── identifier/token overlap          │
         │                                      ▼
         └──────────────────────────── answer or fixed refusal
                                                └── path:start-end citations
-optional ── git log/blame on catalog path ─── capability_missing if unavailable
+history ── .repomind/history.jsonl snapshot ── 200 on fixtures (git optional fallback)
+refs    ── Python AST call sites (qualname → path:line); leaves may be empty
+catalog ── tree_hash + optional source_sha pin for dogfood snapshots
 ```
 
 ## Trust boundary
@@ -44,8 +46,10 @@ tie-breaking. The response renderer can describe only retrieved definitions. No 
 score produces a fixed refusal and zero citations.
 
 `GET /v1/code/symbols` exposes the same chunks as a stable outline. `GET /v1/catalog`
-publishes tree hashes. Every HTTP response gets an `x-request-id`; the UI displays it and
-the service emits a compact JSON completion log.
+publishes tree hashes and optional `source_sha` / `source_repo` for dogfood snapshots.
+`GET /v1/code/history` reads committed fixture snapshots (ADR 0004). `GET /v1/code/refs`
+returns Python AST incoming call sites. Every HTTP response gets an `x-request-id`; the UI
+displays it and the service emits a compact JSON completion log.
 
 ## Deliberate limits
 
@@ -53,5 +57,6 @@ the service emits a compact JSON completion log.
 - Optional tree-sitter is an extra; default CI never downloads a grammar.
 - Memory-only index, content-addressed and incremental on re-ingest.
 - Closed demonstration catalog, not arbitrary repository hosting or zip upload.
-- Git history is optional and fixture-local; no remotes.
+- Fixture history is a committed snapshot, not live VCS and not a GitHub clone.
+- Incoming refs are plain name/attribute calls only; no type inference.
 - Lexical dogfood score measures navigation/citation regressions, not general retrieval quality.

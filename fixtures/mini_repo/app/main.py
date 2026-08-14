@@ -12,3 +12,8 @@ def create_app() -> dict[str, object]:
 async def health() -> dict[str, str]:
     """Return the fixture process liveness payload."""
     return {"status": "ok"}
+
+
+def boot() -> dict[str, object]:
+    """Start the fixture application by calling create_app."""
+    return create_app()

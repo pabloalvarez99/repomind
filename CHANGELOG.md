@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.3.0 — 2026-08-14
+
+### Fixed
+
+- Hosted `GET /v1/code/history` no longer returns `503 capability_missing` for packaged
+  fixtures. v0.2.0 shelled out to `git(1)`, which is absent on Vercel and whose fixtures are
+  not stand-alone work trees. History now reads committed `.repomind/history.jsonl` snapshots.
+
+### Added
+
+- `scripts/generate_history_snapshots.py` writes deterministic log/blame tables per fixture
+  (content-addressed, no wall clock). Runtime never needs git for packaged fixtures.
+- ADR 0004: why a committed snapshot is more honest on serverless than shelling out to git.
+- `production_rag` fixture refreshed from pinned P1 SHA
+  `d43f81265842c95130a4b064cfca8a220dfd5431` (`src/` selection). Pin recorded in
+  `.repomind/source.json` and exposed on `GET /v1/catalog` as `source_sha` / `source_repo`.
+- Python AST incoming refs: `GET /v1/code/refs?repo_id=&symbol=` and console `/refs`.
+  Goldens: `create_app` has ≥1 caller (`boot`); leaf `health` may have zero without lying.
+- UI panel "Who calls a symbol" with path:line call sites.
+
+### Changed
+
+- History contract: known fixture path → `200`; unknown path → `404`; escape → `400`;
+  no snapshot and no local git → `503 capability_missing`.
+- Dogfood goldens retargeted to new `run_query` range `244-277` (not weakened).
+- Console chrome updated; captures regenerated.
+
 ## v0.2.0 — 2026-08-14
 
 ### Fixed

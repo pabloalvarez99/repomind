@@ -1,4 +1,4 @@
-# Case study: RepoMind v0.2.0
+# Case study: RepoMind v0.3.0
 
 **In one line:** a repository Q&A service that answers with `path:start-end` citations or
 refuses outright, runs end to end with no API key and no network call, and is gated by two
@@ -109,11 +109,25 @@ unchanged fixture is a measured no-op and `GET /v1/catalog` can publish what thi
 actually serves. Python still uses the stdlib AST. JavaScript/TypeScript is free-path plumbing
 on a tiny committed fixture (`mini_js`): `Where is foo defined?` → `src/foo.js` with a
 path:line citation. That is multi-language wiring, not SOTA. Optional tree-sitter stays behind
-an extra so default CI never needs network for a grammar. Optional `GET /v1/code/history`
-runs read-only `git log`/`blame` on a catalog-relative path only; missing git or a non-git
-fixture root is `503 capability_missing`, never a silent empty list and never a remote.
+an extra so default CI never needs network for a grammar.
 
-## Decision 5 — what 14/14 and 8/8 actually prove
+## Decision 5 — committed history snapshots beat git(1) on serverless (v0.3.0)
+
+v0.2.0 advertised `GET /v1/code/history` via local git. On Vercel that surface always returned
+`503 capability_missing`: no git binary, and fixtures are not stand-alone work trees.
+Documenting the 503 is not a product. v0.3.0 commits deterministic
+`.repomind/history.jsonl` tables per fixture and reads those on the request path
+([ADR 0004](adr/0004-committed-history-snapshots.md)). A hiring manager gets `200` with path
+history that is an honest snapshot claim — not live GitHub, and not a silent empty list.
+
+## Decision 6 — dogfood a pinned P1 snapshot; who-calls stays AST-honest
+
+`production_rag` is refreshed from a pinned SHA of `pabloalvarez99/production-rag` `src/`
+only. The pin is catalog metadata (`source_sha`), never a live clone. Incoming refs
+(`GET /v1/code/refs`) walk Python AST call sites: a known function can have callers, and a
+leaf may honestly return zero. No invented edges.
+
+## Decision 7 — what 14/14 and 8/8 actually prove
 
 Both suites pass on committed bytes. Both scorecards report `provider:
 deterministic-lexical`, `judge: null`, and `billed_usd: 0.0`. That last line is the point: no
@@ -138,7 +152,8 @@ model scored these runs, so there is no grader to flatter the system.
   small committed corpora is a regression gate, not a benchmark.
 - Semantic understanding. Prose questions succeed on lexical overlap with identifiers and
   docstrings; rephrase one far enough and it refuses.
-- Coverage beyond Python. The chunker is Python-AST-only by construction.
+- Deep multi-language analysis. Free-path JS is top-level plumbing on a tiny fixture; incoming
+  refs are Python-AST-only.
 - Answer *synthesis* quality. Answers are templated statements about located definitions.
   There is no generation step to evaluate, which is why `judge` is `null` rather than a score.
 - Scaling behavior. The index is in-memory and rebuilt per process.

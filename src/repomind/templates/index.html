@@ -38,6 +38,28 @@
         </form>
       </section>
 
+      <section class="panel" aria-labelledby="refs-heading">
+        <h2 id="refs-heading">Who calls a symbol</h2>
+        <form class="refs-form" action="/refs" method="get">
+          <div class="field repo-field">
+            <label for="refs_repo_id">Repository</label>
+            <select id="refs_repo_id" name="repo_id">
+              {% for repo_id in repo_ids %}
+              <option value="{{ repo_id }}"{% if selected_repo == repo_id %} selected{% endif %}>{{ repo_id }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field question-field">
+            <label for="symbol">Symbol</label>
+            <input id="symbol" name="symbol" type="text" required maxlength="256"
+                   value="{{ refs_symbol | default('create_app') }}"
+                   aria-describedby="symbol-help">
+            <p id="symbol-help" class="help">Python AST only. Leaves with zero callers stay empty — no invented edges.</p>
+          </div>
+          <button type="submit">Find callers <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+
       {% if result is defined %}
       <section class="result panel" aria-live="polite" aria-labelledby="result-heading">
         <div class="result-heading">
@@ -72,8 +94,40 @@
       </section>
       {% endif %}
 
+      {% if refs is defined %}
+      <section class="result panel refs-result" aria-live="polite" aria-labelledby="refs-result-heading">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Incoming refs</p>
+            <h2 id="refs-result-heading">Who calls <code>{{ refs.qualname }}</code></h2>
+          </div>
+          <span class="status {% if refs.callers %}found{% else %}refused{% endif %}">
+            {% if refs.callers %}{{ refs.callers | length }} caller{% if refs.callers | length != 1 %}s{% endif %}{% else %}leaf{% endif %}
+          </span>
+        </div>
+        {% if refs.callers %}
+        <ol class="citations refs-list">
+          {% for site in refs.callers %}
+          {% set location = site.path ~ ':' ~ site.line %}
+          <li>
+            <div class="citation-line">
+              <code class="location">{{ location }}</code>
+              <span class="caller-name">from <code>{{ site.caller_qualname }}</code></span>
+              <button type="button" class="copy-location" data-copy="{{ location }}"
+                      aria-label="Copy {{ location }}" aria-live="polite" hidden>copy</button>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        <p class="refusal-note">No call sites in this fixture name <code>{{ refs.symbol }}</code>. A leaf can have zero callers without inventing edges.</p>
+        {% endif %}
+        <p class="request-id">request_id <code>{{ request_id }}</code></p>
+      </section>
+      {% endif %}
+
       <footer>
-        <span>Python AST</span><span>Closed catalog</span><span>$0 deterministic path</span>
+        <span>Python AST</span><span>Closed catalog</span><span>History snapshots</span><span>$0 deterministic path</span>
       </footer>
     </main>
   </body>

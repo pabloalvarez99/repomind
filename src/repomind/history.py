@@ -1,18 +1,25 @@
-"""Read-only git log/blame over a catalog fixture root.
+"""Read-only path history over a catalog fixture root.
 
-This is an optional capability, not a product surface for browsing GitHub. The
-tool never accepts a remote URL, never runs ``git fetch``, and never treats a
-caller string as a filesystem root — only a catalog ``repo_id`` plus a
-repository-relative path that has already been validated to stay under that
-root.
+Hosted and packaged fixtures answer from a committed snapshot at
+``.repomind/history.jsonl`` (see ``scripts/generate_history_snapshots.py``).
+That is the production path: no ``git(1)`` binary, no stand-alone ``.git`` under
+the fixture, no remote, no fetch.
+
+When a catalog root has no snapshot (for example a local override of
+``production_rag`` that points at a developer worktree), the service may fall
+back to a read-only local git log/blame. Missing both surfaces is an explicit
+``503 capability_missing`` — never a silent empty success, and never a claim
+that live GitHub history was consulted.
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Final, Literal
 
@@ -23,6 +30,7 @@ HistoryMode = Literal["log", "blame"]
 MAX_HISTORY_LIMIT: Final = 50
 DEFAULT_HISTORY_LIMIT: Final = 5
 _GIT_TIMEOUT_SECONDS: Final = 5
+SNAPSHOT_RELATIVE_PATH: Final = Path(".repomind") / "history.jsonl"
 
 
 class CapabilityMissing(Exception):
@@ -39,9 +47,13 @@ class UnsafeHistoryPath(ValueError):
     """The caller-supplied path is not a safe repository-relative location."""
 
 
+class HistoryPathNotFound(LookupError):
+    """The path is well-formed but names no file in the catalog root."""
+
+
 @dataclass(frozen=True, slots=True)
 class HistoryEntry:
-    """One git log line or blame attribution."""
+    """One log line or blame attribution."""
 
     sha: str
     summary: str
@@ -58,6 +70,7 @@ class HistoryResult:
     path: str
     mode: HistoryMode
     entries: tuple[HistoryEntry, ...]
+    source: Literal["snapshot", "git"] = "snapshot"
 
 
 def _resolve_git() -> str:
@@ -139,8 +152,59 @@ def _ensure_git_repository(git: str, root: Path) -> None:
         raise CapabilityMissing("git_history", "repository_not_git") from error
 
 
-class GitHistoryService:
-    """Resolve catalog ids to roots and run read-only git history queries."""
+@lru_cache(maxsize=16)
+def _load_snapshot(snapshot_path: str) -> dict[tuple[str, HistoryMode], tuple[HistoryEntry, ...]]:
+    """Parse one committed history.jsonl into (path, mode) → entries."""
+    path = Path(snapshot_path)
+    if not path.is_file():
+        return {}
+    buckets: dict[tuple[str, HistoryMode], list[HistoryEntry]] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(row, dict):
+            continue
+        file_path = row.get("path")
+        mode_raw = row.get("mode")
+        sha = row.get("sha")
+        summary = row.get("summary")
+        if not isinstance(file_path, str) or not isinstance(mode_raw, str):
+            continue
+        if mode_raw not in ("log", "blame"):
+            continue
+        mode: HistoryMode = "log" if mode_raw == "log" else "blame"
+        if not isinstance(sha, str) or not isinstance(summary, str):
+            continue
+        author = row.get("author")
+        committed_at = row.get("committed_at")
+        line_no = row.get("line")
+        entry = HistoryEntry(
+            sha=sha,
+            summary=summary,
+            author=author if isinstance(author, str) else None,
+            committed_at=committed_at if isinstance(committed_at, str) else None,
+            line=line_no if isinstance(line_no, int) and line_no >= 1 else None,
+        )
+        key: tuple[str, HistoryMode] = (file_path.replace("\\", "/"), mode)
+        buckets.setdefault(key, []).append(entry)
+    return {key: tuple(entries) for key, entries in buckets.items()}
+
+
+def clear_snapshot_cache() -> None:
+    """Drop cached snapshot parses (tests that rewrite history.jsonl)."""
+    _load_snapshot.cache_clear()
+
+
+class HistoryService:
+    """Resolve catalog ids to roots and answer history from snapshot or git."""
 
     def __init__(self, roots: Mapping[str, Path]) -> None:
         """Bind to catalog roots that the catalog already resolved."""
@@ -159,7 +223,8 @@ class GitHistoryService:
         Raises:
             BlankRepositoryId / MalformedRepositoryId / UnknownRepository: bad id.
             UnsafeHistoryPath: path is blank, absolute, or tries to escape.
-            CapabilityMissing: git missing, root not a git repo, or command fails.
+            HistoryPathNotFound: path does not name a file under the root.
+            CapabilityMissing: no snapshot and no usable local git history.
             ValueError: ``mode`` or ``limit`` is out of contract.
         """
         if mode not in ("log", "blame"):
@@ -176,8 +241,42 @@ class GitHistoryService:
         except ValueError as error:
             raise UnsafeHistoryPath("path must stay inside the catalog root") from error
         if not absolute.is_file():
-            raise UnsafeHistoryPath("path does not name a file in the catalog root")
+            raise HistoryPathNotFound(relative)
 
+        snapshot_file = root / SNAPSHOT_RELATIVE_PATH
+        if snapshot_file.is_file():
+            table = _load_snapshot(str(snapshot_file.resolve()))
+            entries = table.get((relative, mode), ())
+            if entries:
+                limited = entries[:limit]
+                return HistoryResult(
+                    repo_id=validated_repo,
+                    path=relative,
+                    mode=mode,
+                    entries=limited,
+                    source="snapshot",
+                )
+            # Snapshot present but this path was not recorded: honest gap.
+            raise CapabilityMissing("history_snapshot", "path_not_in_snapshot")
+
+        return self._history_from_git(
+            repo_id=validated_repo,
+            root=root,
+            relative=relative,
+            mode=mode,
+            limit=limit,
+        )
+
+    def _history_from_git(
+        self,
+        *,
+        repo_id: str,
+        root: Path,
+        relative: str,
+        mode: HistoryMode,
+        limit: int,
+    ) -> HistoryResult:
+        """Optional local-only git fallback when no committed snapshot exists."""
         git = _resolve_git()
         _ensure_git_repository(git, root)
 
@@ -203,11 +302,16 @@ class GitHistoryService:
             entries = _parse_blame(raw)
 
         return HistoryResult(
-            repo_id=validated_repo,
+            repo_id=repo_id,
             path=relative,
             mode=mode,
             entries=entries,
+            source="git",
         )
+
+
+# Backward-compatible name used by earlier call sites and tests.
+GitHistoryService = HistoryService
 
 
 def _parse_log(raw: str) -> tuple[HistoryEntry, ...]:
